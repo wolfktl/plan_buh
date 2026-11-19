@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Вход — Планировщик бухгалтера</title>
+<style>
+  :root{--bg:#f4f6f9;--card:#fff;--ink:#1a2233;--muted:#64748b;--line:#e2e8f0;
+    --accent:#2563eb;--accent-soft:#eff4ff;--danger:#dc2626;--danger-soft:#fdecec;--ok:#16a34a;
+    --shadow:0 10px 30px rgba(16,24,40,.08)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:linear-gradient(160deg,#eef2f8,#e5ecf6);color:var(--ink);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);width:100%;max-width:400px;padding:28px}
+  .logo{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .logo .ic{width:38px;height:38px;border-radius:10px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:20px}
+  h1{font-size:19px;font-weight:700}
+  .sub{color:var(--muted);font-size:13px;margin:10px 0 18px;line-height:1.5}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 5px}
+  input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+    font-size:14px;background:var(--bg);transition:.12s}
+  input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .btn{width:100%;border:0;border-radius:10px;padding:12px;font-size:14px;font-weight:700;
+    cursor:pointer;margin-top:18px;background:var(--accent);color:#fff;transition:.12s}
+  .btn:hover{background:#1d4ed8}
+  .btn:disabled{opacity:.6;cursor:default}
+  .msg{font-size:13px;border-radius:9px;padding:9px 11px;margin-top:14px;display:none}
+  .msg.err{background:var(--danger-soft);color:#b02121;display:block}
+  .msg.ok{background:#eafaf0;color:#15803d;display:block}
+  .screen{display:none}
+  .screen.active{display:block}
+  .qrwrap{text-align:center;margin:14px 0}
+  .qrwrap img{width:190px;height:190px;border:1px solid var(--line);border-radius:12px;padding:8px;background:#fff}
+  .secret{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--bg);
+    border:1px solid var(--line);border-radius:8px;padding:8px;word-break:break-all;color:var(--muted);margin-top:8px}
+  .steps{font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:10px}
+  .code-input{letter-spacing:6px;text-align:center;font-size:20px;font-weight:700}
+  .foot{font-size:11.5px;color:var(--muted);text-align:center;margin-top:18px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><div class="ic">📅</div><h1 id="head">Планировщик бухгалтера</h1></div>
+
+  <!-- Первичная настройка -->
+  <div class="screen" id="sc-register">
+    <div class="sub">Первый запуск. Создайте учётную запись администратора — других пользователей зарегистрировать через форму будет нельзя.</div>
+    <label>Логин</label>
+    <input id="r-user" autocomplete="username" placeholder="admin">
+    <label>Пароль (мин. 6 символов)</label>
+    <input id="r-pass" type="password" autocomplete="new-password" placeholder="••••••••">
+    <label>Повтор пароля</label>
+    <input id="r-pass2" type="password" autocomplete="new-password" placeholder="••••••••">
+    <button class="btn" id="r-btn">Создать и войти</button>
+  </div>
+
+  <!-- Вход -->
+  <div class="screen" id="sc-login">
+    <div class="sub">Введите логин и пароль для доступа к планировщику.</div>
+    <label>Логин</label>
+    <input id="l-user" autocomplete="username">
+    <label>Пароль</label>
+    <input id="l-pass" type="password" autocomplete="current-password">
+    <button class="btn" id="l-btn">Войти</button>
+  </div>
+
+  <!-- Ввод кода 2FA при входе -->
+  <div class="screen" id="sc-totp">
+    <div class="sub">Введите 6-значный код из приложения-аутентификатора (Google Authenticator, Яндекс.Ключ, 2FAS и т.п.).</div>
+    <label>Код подтверждения</label>
+    <input id="t-code" class="code-input" inputmode="numeric" maxlength="6" placeholder="000000">
+    <button class="btn" id="t-btn">Подтвердить</button>
+  </div>
+
+  <!-- Настройка 2FA -->
+  <div class="screen" id="sc-setup2fa">
+    <div class="sub">Включите двухфакторную аутентификацию. Отсканируйте QR-код в приложении-аутентификаторе.</div>
+    <div class="qrwrap"><img id="s-qr" alt="QR"></div>
+    <div class="steps">Не сканируется? Введите ключ вручную:</div>
+    <div class="secret" id="s-secret"></div>
+    <label>Код из приложения для подтверждения</label>
+    <input id="s-code" class="code-input" inputmode="numeric" maxlength="6" placeholder="000000">
+    <button class="btn" id="s-btn">Включить 2FA</button>
+  </div>
+
+  <div class="msg" id="msg"></div>
+  <div class="foot">Данные хранятся на вашем сервере. Сессия защищена паролем и одноразовым кодом.</div>
+</div>
+
+<script>
+"use strict";
+function $(id){return document.getElementById(id);}
+function show(id){document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("active");});$(id).classList.add("active");}
+function msg(text,ok){var m=$("msg");m.textContent=text;m.className="msg "+(ok?"ok":"err");}
+function clearMsg(){$("msg").className="msg";}
+
+async function api(path,body){
+  var r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:body?JSON.stringify(body):undefined});
+  var data=null;try{data=await r.json();}catch(e){}
+  if(!r.ok){throw new Error((data&&data.detail)||("Ошибка "+r.status));}
+  return data;
+}
+
+async function boot(){
+  try{
+    var st=await (await fetch("/api/auth/status")).json();
+    if(st.needs_setup){show("sc-register");$("head").textContent="Первичная настройка";}
+    else if(st.authenticated && st.user && !st.user.totp_enabled){startSetup2fa();}
+    else if(st.authenticated){location.href="/";}
+    else show("sc-login");
+  }catch(e){show("sc-login");}
+}
+
+// --- регистрация ---
+$("r-btn").onclick=async function(){
+  clearMsg();
+  var u=$("r-user").value.trim(),p=$("r-pass").value,p2=$("r-pass2").value;
+  if(u.length<3){return msg("Логин — минимум 3 символа");}
+  if(p.length<6){return msg("Пароль — минимум 6 символов");}
+  if(p!==p2){return msg("Пароли не совпадают");}
+  this.disabled=true;
+  try{
+    await api("/api/auth/register",{username:u,password:p});
+    var res=await api("/api/auth/login",{username:u,password:p});
+    if(res.need_setup_2fa){startSetup2fa();}
+  }catch(e){msg(e.message);this.disabled=false;}
+};
+
+// --- вход ---
+$("l-btn").onclick=async function(){
+  clearMsg();
+  var u=$("l-user").value.trim(),p=$("l-pass").value;
+  if(!u||!p){return msg("Введите логин и пароль");}
+  this.disabled=true;
+  try{
+    var res=await api("/api/auth/login",{username:u,password:p});
+    if(res.totp_required){show("sc-totp");$("t-code").focus();}
+    else if(res.need_setup_2fa){startSetup2fa();}
+    else location.href="/";
+  }catch(e){msg(e.message);}
+  this.disabled=false;
+};
+$("l-pass").addEventListener("keydown",function(e){if(e.key==="Enter")$("l-btn").click();});
+
+// --- код 2FA при входе ---
+$("t-btn").onclick=async function(){
+  clearMsg();
+  var c=$("t-code").value.trim();
+  if(c.length<6){return msg("Введите 6-значный код");}
+  this.disabled=true;
+  try{await api("/api/auth/login/totp",{code:c});location.href="/";}
+  catch(e){msg(e.message);this.disabled=false;}
+};
+$("t-code").addEventListener("keydown",function(e){if(e.key==="Enter")$("t-btn").click();});
+
+// --- настройка 2FA ---
+async function startSetup2fa(){
+  show("sc-setup2fa");$("head").textContent="Двухфакторная защита";
+  try{
+    var d=await api("/api/auth/2fa/init");
+    $("s-qr").src=d.qr;
+    $("s-secret").textContent=d.secret;
+  }catch(e){msg(e.message);}
+}
+$("s-btn").onclick=async function(){
+  clearMsg();
+  var c=$("s-code").value.trim();
+  if(c.length<6){return msg("Введите код из приложения");}
+  this.disabled=true;
+  try{await api("/api/auth/2fa/verify",{code:c});location.href="/";}
+  catch(e){msg(e.message);this.disabled=false;}
+};
+$("s-code").addEventListener("keydown",function(e){if(e.key==="Enter")$("s-btn").click();});
+
+boot();
+</script>
+</body>
+</html>

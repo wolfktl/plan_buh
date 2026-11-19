@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Планировщик бухгалтера — налоги РФ 2026</title>
+<style>
+  :root{
+    --bg:#f4f6f9;--card:#fff;--ink:#1a2233;--muted:#64748b;--line:#e2e8f0;
+    --accent:#2563eb;--accent-soft:#eff4ff;--ok:#16a34a;--warn:#d97706;--warn-soft:#fff6e8;
+    --danger:#dc2626;--danger-soft:#fdecec;--shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+    --c-ndfl:#2563eb;--c-vznos:#0891b2;--c-nds:#7c3aed;--c-pribyl:#be185d;
+    --c-usn:#15803d;--c-ipself:#b45309;--c-otchet:#475569;--c-custom:#9333ea;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:18px 16px 80px}
+  .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .topbar h1{font-size:20px;font-weight:700;letter-spacing:-.02em;flex:1;min-width:160px}
+  .topbar h1 .em{font-size:22px;margin-right:6px}
+  .icon-btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 12px;
+    font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+  .icon-btn:hover{background:var(--bg)}
+  .icon-btn.ghost{color:var(--muted)}
+
+  .cpbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow)}
+  .cpbar label{font-size:12px;font-weight:600;color:var(--muted)}
+  select{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:13.5px;background:var(--bg);min-width:200px}
+  .cp-meta{font-size:12px;color:var(--muted)}
+  .cp-tag{display:inline-block;font-size:11px;font-weight:600;background:var(--accent-soft);color:#1d4ed8;border-radius:6px;padding:2px 7px;margin-left:4px}
+
+  .disclaimer{background:var(--warn-soft);border:1px solid #f3dcb0;color:#92600a;
+    font-size:12px;border-radius:10px;padding:9px 12px;margin-top:12px;display:flex;gap:8px}
+
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow)}
+  .tile .lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+  .tile .val{font-size:19px;font-weight:700;margin-top:3px}
+  .tile .val small{font-size:12px;font-weight:500;color:var(--muted)}
+  .tile.red .val{color:var(--danger)}.tile.blue .val{color:var(--accent)}
+
+  .controls{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:14px;box-shadow:var(--shadow)}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .row+.row{margin-top:10px}
+  .seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{border:0;background:transparent;padding:6px 11px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff}
+  .search{flex:1;min-width:140px;border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:13.5px;background:var(--bg)}
+  .search:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .addbtn{border:1px dashed #b9c4d6;background:#fff;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer}
+  .addbtn:hover{background:var(--accent-soft)}
+  .filters-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600;width:100%}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);
+    border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;color:var(--muted)}
+  .chip .dot{width:9px;height:9px;border-radius:50%;background:currentColor}
+  .chip.on{background:#fff;color:var(--ink);border-color:#cfd8e6;box-shadow:var(--shadow)}
+  .chip.off{opacity:.5;text-decoration:line-through}
+  .toggle{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  .mini{font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline;background:none;border:0}
+
+  .month{margin-top:20px}
+  .month h2{font-size:15px;font-weight:700;display:flex;gap:8px;align-items:center;padding:0 2px 8px}
+  .month h2 .cnt{font-size:12px;color:var(--muted);font-weight:600}
+  .ev{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-top:9px;
+    display:flex;gap:12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .ev::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--cat,#cbd5e1)}
+  .ev.done{opacity:.55}.ev.done .ev-title{text-decoration:line-through}
+  .ev.past:not(.done){background:#fffafa}
+  .ev.na{opacity:.5}
+  .datecol{flex:0 0 54px;text-align:center;padding-left:4px}
+  .datecol .d{font-size:21px;font-weight:700;line-height:1}
+  .datecol .mo{font-size:10.5px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:2px}
+  .datecol .dow{font-size:10px;color:var(--muted)}
+  .body{flex:1;min-width:0}
+  .ev-title{font-size:13.5px;font-weight:600}
+  .ev-note{font-size:12px;color:var(--muted);margin-top:3px}
+  .badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+  .badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+  .badge.cat{color:#fff;border:0}
+  .badge.type-pay{background:var(--danger-soft);color:#b02121;border:0}
+  .badge.type-rep{background:var(--accent-soft);color:#1d4ed8;border:0}
+  .badge.type-not{background:#f1f5f9;color:#475569;border:0}
+  .badge.moved{background:var(--warn-soft);color:#92600a;border:0}
+  .badge.na{background:#f1f5f9;color:#94a3b8;border:0}
+  .countdown{font-size:11px;font-weight:700;margin-top:6px}
+  .cd-today{color:var(--danger)}.cd-soon{color:var(--warn)}.cd-ok{color:var(--muted)}.cd-past{color:#9aa4b2}
+  .check input{width:20px;height:20px;accent-color:var(--ok);cursor:pointer}
+  .delx{position:absolute;right:8px;bottom:8px;font-size:11px;color:#c0c8d4;background:none;border:0;cursor:pointer}
+  .delx:hover{color:var(--danger)}
+  .empty{text-align:center;color:var(--muted);padding:44px 20px;font-size:14px}
+  .empty .big{font-size:34px;margin-bottom:10px}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:460px;padding:18px;max-height:90vh;overflow:auto}
+  .modal h3{font-size:16px;margin-bottom:6px}
+  .modal .hint{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .modal label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 4px}
+  .modal input,.modal textarea,.modal select{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13.5px;background:#fff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .acts{display:flex;gap:8px;margin-top:16px}
+  .btn{flex:1;border:0;border-radius:9px;padding:10px;font-size:13.5px;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff}.btn.ghost{background:var(--bg);color:var(--ink)}
+  .cp-list{margin-top:6px}
+  .cp-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;display:flex;gap:10px;align-items:center}
+  .cp-item .nm{font-weight:600;font-size:13.5px}
+  .cp-item .meta{font-size:11.5px;color:var(--muted)}
+  .cp-item .sp{flex:1}
+  .lnk{font-size:12px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:600}
+  .lnk.red{color:var(--danger)}
+  footer{margin-top:28px;text-align:center;color:var(--muted);font-size:11px;line-height:1.7}
+  @media(max-width:560px){.tiles{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1><span class="em">📅</span>Планировщик бухгалтера</h1>
+    <button class="icon-btn" id="cpBook">📇 Контрагенты</button>
+    <button class="icon-btn ghost" id="logoutBtn">Выйти</button>
+  </div>
+
+  <div class="cpbar">
+    <label>Контрагент:</label>
+    <select id="cpSelect"></select>
+    <span class="cp-meta" id="cpMeta"></span>
+    <span style="flex:1"></span>
+    <button class="icon-btn" id="editCp" style="display:none">✎ Изменить</button>
+  </div>
+
+  <div class="disclaimer">
+    <span>⚠️</span>
+    <div>Сроки учитывают переносы с выходных (п.&nbsp;7 ст.&nbsp;6.1 НК&nbsp;РФ) по производственному календарю&nbsp;2026. Состав отчётности зависит от режима и наличия сотрудников. Это вспомогательный инструмент — сверяйтесь с ФНС.</div>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="tiles">
+      <div class="tile blue"><div class="lab">Ближайший срок</div><div class="val" id="t-next">—</div></div>
+      <div class="tile red"><div class="lab">Просрочено (не отмечено)</div><div class="val" id="t-overdue">0</div></div>
+      <div class="tile"><div class="lab">Выполнено в этом месяце</div><div class="val" id="t-done">0</div></div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <div class="seg" id="viewSeg">
+          <button data-v="upcoming" class="on">Ближайшие</button>
+          <button data-v="all">Весь год</button>
+          <button data-v="open">Невыполненные</button>
+        </div>
+        <input class="search" id="search" placeholder="Поиск: НДС, РСВ…">
+        <button class="addbtn" id="addBtn">+ Своя задача</button>
+      </div>
+      <div class="row">
+        <span class="filters-title">Виды (нажмите, чтобы скрыть)</span>
+        <span class="chip on" data-cat="ndfl" style="color:var(--c-ndfl)"><span class="dot"></span>НДФЛ</span>
+        <span class="chip on" data-cat="vznos" style="color:var(--c-vznos)"><span class="dot"></span>Взносы</span>
+        <span class="chip on" data-cat="nds" style="color:var(--c-nds)"><span class="dot"></span>НДС</span>
+        <span class="chip on" data-cat="pribyl" style="color:var(--c-pribyl)"><span class="dot"></span>Прибыль</span>
+        <span class="chip on" data-cat="usn" style="color:var(--c-usn)"><span class="dot"></span>УСН</span>
+        <span class="chip on" data-cat="ipself" style="color:var(--c-ipself)"><span class="dot"></span>ИП за себя</span>
+        <span class="chip on" data-cat="otchet" style="color:var(--c-otchet)"><span class="dot"></span>Отчётность</span>
+      </div>
+      <div class="row">
+        <label class="toggle"><input type="checkbox" id="showNA"> показывать неприменимые к режиму</label>
+        <button class="mini" id="resetFilters">Сбросить фильтры</button>
+      </div>
+    </div>
+
+    <div id="list"></div>
+  </div>
+
+  <div id="noCp" class="empty" style="display:none">
+    <div class="big">📇</div>
+    Добавьте первого контрагента, чтобы вести по нему сроки сдачи и уплаты.<br>
+    <button class="addbtn" id="firstCp" style="margin-top:14px">+ Добавить контрагента</button>
+  </div>
+
+  <footer>
+    Единые сроки ЕНС: отчётность — до 25-го, уплата (ЕНП) — до 28-го.<br>
+    НДФЛ: уведомление за 1–22 — до 25-го, за 23-е–конец месяца — до 3-го следующего месяца.<br>
+    Данные на ноябрь 2026. Сверяйтесь с сайтом ФНС.
+  </footer>
+</div>
+
+<!-- Модалка: справочник контрагентов -->
+<div class="overlay" id="ovBook">
+  <div class="modal">
+    <h3>Справочник контрагентов</h3>
+    <div class="hint">Организации и ИП, по которым вы ведёте учёт сроков.</div>
+    <div class="cp-list" id="cpList"></div>
+    <div class="acts">
+      <button class="btn ghost" id="bookClose">Закрыть</button>
+      <button class="btn primary" id="bookAdd">+ Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: форма контрагента -->
+<div class="overlay" id="ovForm">
+  <div class="modal">
+    <h3 id="formTitle">Новый контрагент</h3>
+    <label>Наименование *</label>
+    <input id="f-name" placeholder="ООО «Ромашка»">
+    <div class="grid2">
+      <div><label>ИНН</label><input id="f-inn" inputmode="numeric" placeholder="7700000000"></div>
+      <div><label>КПП</label><input id="f-kpp" inputmode="numeric" placeholder="770001001"></div>
+    </div>
+    <div class="grid2">
+      <div><label>Форма</label>
+        <select id="f-form"><option value="ooo">Организация (ООО)</option><option value="ip">ИП</option></select></div>
+      <div><label>Система налогообложения</label>
+        <select id="f-tax"><option value="osno">ОСНО</option><option value="usn">УСН</option></select></div>
+    </div>
+    <label class="toggle" style="margin-top:12px"><input type="checkbox" id="f-emp" checked> есть сотрудники</label>
+    <label>Заметка</label>
+    <input id="f-note" placeholder="Напр. квартальный НДС, ответственный…">
+    <div class="acts">
+      <button class="btn ghost" id="formCancel">Отмена</button>
+      <button class="btn primary" id="formSave">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: своя задача -->
+<div class="overlay" id="ovTask">
+  <div class="modal" style="max-width:380px">
+    <h3>Своя задача</h3>
+    <div class="hint" id="taskCpName"></div>
+    <label>Название *</label>
+    <input id="k-title" placeholder="Сверка с контрагентом">
+    <label>Дата *</label>
+    <input id="k-date" type="date">
+    <label>Заметка</label>
+    <input id="k-note" placeholder="Комментарий">
+    <div class="acts">
+      <button class="btn ghost" id="taskCancel">Отмена</button>
+      <button class="btn primary" id="taskSave">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+function $(id){return document.getElementById(id);}
+var MONTHS=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+var MONTHS_N=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+var DOW=["вс","пн","вт","ср","чт","пт","сб"];
+var CATS={ndfl:{name:"НДФЛ",c:"var(--c-ndfl)"},vznos:{name:"Взносы",c:"var(--c-vznos)"},
+  nds:{name:"НДС",c:"var(--c-nds)"},pribyl:{name:"Прибыль",c:"var(--c-pribyl)"},
+  usn:{name:"УСН",c:"var(--c-usn)"},ipself:{name:"ИП за себя",c:"var(--c-ipself)"},
+  otchet:{name:"Отчётность",c:"var(--c-otchet)"},custom:{name:"Своё",c:"var(--c-custom)"}};
+var TYPES={pay:"Уплата",rep:"Отчёт",not:"Уведомление"};
+var TAXNAME={osno:"ОСНО",usn:"УСН"};var FORMNAME={ooo:"ООО",ip:"ИП"};
+
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function parseDate(iso){return new Date(iso+"T00:00:00");}
+function today(){var n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());}
+function daysBetween(a,b){return Math.round((a-b)/86400000);}
+function plural(n,f){return n+" "+(n%10===1&&n%100!==11?f[0]:(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?f[1]:f[2]));}
+
+async function api(method,path,body){
+  var opt={method:method,headers:{}};
+  if(body){opt.headers["Content-Type"]="application/json";opt.body=JSON.stringify(body);}
+  var r=await fetch(path,opt);
+  if(r.status===401){location.href="/login";throw new Error("unauth");}
+  var data=null;try{data=await r.json();}catch(e){}
+  if(!r.ok)throw new Error((data&&data.detail)||("Ошибка "+r.status));
+  return data;
+}
+
+/* ---------- state ---------- */
+var LS_CP="pb_cp",LS_FILT="pb_hidden",LS_VIEW="pb_view",LS_NA="pb_showna";
+var counterparties=[],currentCp=null,events=[];
+var hiddenCats=new Set(JSON.parse(localStorage.getItem(LS_FILT)||"[]"));
+var view=localStorage.getItem(LS_VIEW)||"upcoming";
+var showNA=localStorage.getItem(LS_NA)==="1";
+var query="";
+var editingId=null;
+
+/* ---------- boot ---------- */
+async function boot(){
+  try{await loadCps();}catch(e){return;}
+  // восстановить фильтры в UI
+  document.querySelectorAll(".chip[data-cat]").forEach(function(ch){
+    if(hiddenCats.has(ch.getAttribute("data-cat"))){ch.classList.remove("on");ch.classList.add("off");}
+  });
+  document.querySelectorAll("#viewSeg button").forEach(function(b){
+    b.classList.toggle("on",b.getAttribute("data-v")===view);});
+  $("showNA").checked=showNA;
+}
+
+async function loadCps(){
+  counterparties=await api("GET","/api/counterparties");
+  var sel=$("cpSelect");sel.innerHTML="";
+  if(!counterparties.length){
+    $("main").style.display="none";$("noCp").style.display="block";
+    $("editCp").style.display="none";$("cpMeta").textContent="";
+    return;
+  }
+  counterparties.forEach(function(c){
+    var o=document.createElement("option");o.value=c.id;o.textContent=c.name;sel.appendChild(o);
+  });
+  var saved=parseInt(localStorage.getItem(LS_CP)||"0",10);
+  var found=counterparties.find(function(c){return c.id===saved;});
+  currentCp=found||counterparties[0];
+  sel.value=currentCp.id;
+  $("noCp").style.display="none";$("main").style.display="block";$("editCp").style.display="";
+  await loadEvents();
+}
+
+async function loadEvents(){
+  var d=await api("GET","/api/events?counterparty_id="+currentCp.id);
+  events=d.events;
+  $("cpMeta").innerHTML='<span class="cp-tag">'+FORMNAME[currentCp.form]+" · "+TAXNAME[currentCp.tax_system]+
+    (currentCp.has_employees?" · с сотрудниками":" · без сотрудников")+'</span>';
+  render();
+}
+
+/* ---------- render ---------- */
+function fmtCd(dt){
+  var diff=daysBetween(dt,today());
+  if(diff<0)return{txt:"просрочено "+Math.abs(diff)+" дн.",cls:"cd-past"};
+  if(diff===0)return{txt:"сегодня срок",cls:"cd-today"};
+  if(diff===1)return{txt:"завтра",cls:"cd-soon"};
+  if(diff<=7)return{txt:"через "+diff+" дн.",cls:"cd-soon"};
+  return{txt:"через "+diff+" дн.",cls:"cd-ok"};
+}
+
+function render(){
+  var t=today();
+  var vis=events.filter(function(e){
+    if(hiddenCats.has(e.cat))return false;
+    if(!showNA && e.applicable===false && !e.custom)return false;
+    if(view==="open"&&e.done)return false;
+    if(view==="upcoming"){var diff=daysBetween(parseDate(e.date),t);
+      if(diff<-14)return false;if(e.done&&diff<0)return false;}
+    if(query){var q=query.toLowerCase();if((e.title+" "+(e.note||"")).toLowerCase().indexOf(q)<0)return false;}
+    return true;
+  });
+
+  // плашки — по применимым к режиму (+ свои)
+  var relevant=events.filter(function(e){return e.custom||e.applicable!==false;});
+  var future=relevant.filter(function(e){return !e.done&&daysBetween(parseDate(e.date),t)>=0;})
+    .sort(function(a,b){return parseDate(a.date)-parseDate(b.date);});
+  if(future.length){var nx=future[0],d=parseDate(nx.date);
+    $("t-next").innerHTML=d.getDate()+" "+MONTHS[d.getMonth()]+' <small>'+fmtCd(d).txt+"</small>";}
+  else $("t-next").textContent="всё закрыто ✓";
+  var overdue=relevant.filter(function(e){var df=daysBetween(parseDate(e.date),t);return !e.done&&df<0&&df>=-400;});
+  $("t-overdue").textContent=overdue.length;
+  var dm=relevant.filter(function(e){var d=parseDate(e.date);return e.done&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();});
+  $("t-done").textContent=dm.length;
+
+  var list=$("list");list.innerHTML="";
+  if(!vis.length){list.innerHTML='<div class="empty">Ничего не найдено. Измените фильтры или режим.</div>';return;}
+
+  var groups={},order=[];
+  vis.forEach(function(e){var d=parseDate(e.date);var k=d.getFullYear()+"-"+d.getMonth();
+    if(!groups[k]){groups[k]=[];order.push(k);}groups[k].push(e);});
+  order.forEach(function(k){
+    var p=k.split("-"),yy=+p[0],mm=+p[1];
+    var g=document.createElement("div");g.className="month";
+    var open=groups[k].filter(function(e){return !e.done;}).length;
+    g.innerHTML='<h2>'+MONTHS_N[mm]+" "+yy+' <span class="cnt">'+plural(open,["открытая","открытые","открытых"])+'</span></h2>';
+    groups[k].forEach(function(e){g.appendChild(evNode(e,t));});
+    list.appendChild(g);
+  });
+}
+
+function evNode(e,t){
+  var d=parseDate(e.date),diff=daysBetween(d,t);
+  var el=document.createElement("div");
+  el.className="ev"+(e.done?" done":"")+(diff<0&&!e.done?" past":"")+(e.applicable===false&&!e.custom?" na":"");
+  el.style.setProperty("--cat",CATS[e.cat].c);
+  var cd=fmtCd(d);var tc=e.type==="pay"?"type-pay":(e.type==="rep"?"type-rep":"type-not");
+  var h="";
+  h+='<div class="datecol"><div class="d">'+d.getDate()+'</div><div class="mo">'+MONTHS_N[d.getMonth()].slice(0,3)+
+     '</div><div class="dow">'+DOW[d.getDay()]+'</div></div>';
+  h+='<div class="body"><div class="ev-title">'+escapeHtml(e.title)+'</div>';
+  if(e.note)h+='<div class="ev-note">'+escapeHtml(e.note)+'</div>';
+  h+='<div class="badges"><span class="badge cat" style="background:'+CATS[e.cat].c+'">'+CATS[e.cat].name+'</span>';
+  h+='<span class="badge '+tc+'">'+TYPES[e.type]+'</span>';
+  if(e.moved)h+='<span class="badge moved">⇄ перенос</span>';
+  if(e.applicable===false&&!e.custom)h+='<span class="badge na">не для этого режима</span>';
+  h+='</div><div class="countdown '+cd.cls+'">'+cd.txt+'</div>';
+  if(e.custom)h+='<button class="delx" data-del="'+e.key+'">удалить</button>';
+  h+='</div><div class="check"><input type="checkbox" data-key="'+e.key+'" '+(e.done?"checked":"")+'></div>';
+  el.innerHTML=h;return el;
+}
+
+/* ---------- events ---------- */
+$("list").addEventListener("change",async function(ev){
+  var cb=ev.target.closest("input[type=checkbox]");if(!cb)return;
+  var key=cb.getAttribute("data-key"),done=cb.checked;
+  var e=events.find(function(x){return x.key===key;});if(e)e.done=done;
+  try{await api("POST","/api/completions",{counterparty_id:currentCp.id,event_key:key,done:done});render();}
+  catch(err){alert(err.message);if(e)e.done=!done;render();}
+});
+$("list").addEventListener("click",async function(ev){
+  var del=ev.target.closest("[data-del]");if(!del)return;
+  var key=del.getAttribute("data-del");
+  if(!confirm("Удалить задачу?"))return;
+  try{await api("DELETE","/api/custom-tasks/"+key.slice(1));events=events.filter(function(x){return x.key!==key;});render();}
+  catch(err){alert(err.message);}
+});
+
+$("cpSelect").addEventListener("change",async function(){
+  currentCp=counterparties.find(function(c){return c.id===parseInt(this.value,10);}.bind(this));
+  localStorage.setItem(LS_CP,currentCp.id);await loadEvents();
+});
+
+$("viewSeg").addEventListener("click",function(ev){
+  var b=ev.target.closest("button");if(!b)return;
+  document.querySelectorAll("#viewSeg button").forEach(function(x){x.classList.remove("on");});
+  b.classList.add("on");view=b.getAttribute("data-v");localStorage.setItem(LS_VIEW,view);render();
+});
+document.querySelectorAll(".chip[data-cat]").forEach(function(ch){
+  ch.addEventListener("click",function(){
+    var c=ch.getAttribute("data-cat");
+    if(hiddenCats.has(c)){hiddenCats.delete(c);ch.classList.add("on");ch.classList.remove("off");}
+    else{hiddenCats.add(c);ch.classList.remove("on");ch.classList.add("off");}
+    localStorage.setItem(LS_FILT,JSON.stringify(Array.from(hiddenCats)));render();
+  });
+});
+$("search").addEventListener("input",function(e){query=e.target.value.trim();render();});
+$("showNA").addEventListener("change",function(e){showNA=e.target.checked;localStorage.setItem(LS_NA,showNA?"1":"0");render();});
+$("resetFilters").addEventListener("click",function(){
+  hiddenCats.clear();localStorage.setItem(LS_FILT,"[]");
+  document.querySelectorAll(".chip[data-cat]").forEach(function(c){c.classList.add("on");c.classList.remove("off");});render();
+});
+$("logoutBtn").addEventListener("click",async function(){await api("POST","/api/auth/logout");location.href="/login";});
+
+/* ---------- справочник контрагентов ---------- */
+function openBook(){renderBook();$("ovBook").classList.add("show");}
+function renderBook(){
+  var el=$("cpList");el.innerHTML="";
+  if(!counterparties.length){el.innerHTML='<div class="hint">Пока нет контрагентов.</div>';return;}
+  counterparties.forEach(function(c){
+    var d=document.createElement("div");d.className="cp-item";
+    d.innerHTML='<div><div class="nm">'+escapeHtml(c.name)+'</div><div class="meta">'+
+      FORMNAME[c.form]+" · "+TAXNAME[c.tax_system]+(c.has_employees?" · сотрудники":"")+
+      (c.inn?" · ИНН "+escapeHtml(c.inn):"")+'</div></div><div class="sp"></div>'+
+      '<button class="lnk" data-edit="'+c.id+'">изменить</button>'+
+      '<button class="lnk red" data-del="'+c.id+'">удалить</button>';
+    el.appendChild(d);
+  });
+}
+$("cpBook").addEventListener("click",openBook);
+$("bookClose").addEventListener("click",function(){$("ovBook").classList.remove("show");});
+$("bookAdd").addEventListener("click",function(){openForm(null);});
+$("cpList").addEventListener("click",async function(ev){
+  var e=ev.target.closest("[data-edit]"),d=ev.target.closest("[data-del]");
+  if(e){var c=counterparties.find(function(x){return x.id===parseInt(e.getAttribute("data-edit"),10);});openForm(c);}
+  if(d){var id=parseInt(d.getAttribute("data-del"),10);
+    if(!confirm("Удалить контрагента и все его отметки?"))return;
+    try{await api("DELETE","/api/counterparties/"+id+"?hard=true");
+      if(currentCp&&currentCp.id===id)localStorage.removeItem(LS_CP);
+      await loadCps();renderBook();}catch(err){alert(err.message);}}
+});
+
+/* форма контрагента */
+function openForm(c){
+  editingId=c?c.id:null;
+  $("formTitle").textContent=c?"Изменить контрагента":"Новый контрагент";
+  $("f-name").value=c?c.name:"";$("f-inn").value=c&&c.inn?c.inn:"";$("f-kpp").value=c&&c.kpp?c.kpp:"";
+  $("f-form").value=c?c.form:"ooo";$("f-tax").value=c?c.tax_system:"osno";
+  $("f-emp").checked=c?c.has_employees:true;$("f-note").value=c&&c.note?c.note:"";
+  $("ovForm").classList.add("show");
+}
+$("formCancel").addEventListener("click",function(){$("ovForm").classList.remove("show");});
+$("formSave").addEventListener("click",async function(){
+  var name=$("f-name").value.trim();if(!name)return alert("Укажите наименование");
+  var payload={name:name,inn:$("f-inn").value.trim()||null,kpp:$("f-kpp").value.trim()||null,
+    form:$("f-form").value,tax_system:$("f-tax").value,has_employees:$("f-emp").checked,note:$("f-note").value.trim()||null};
+  try{
+    if(editingId)await api("PUT","/api/counterparties/"+editingId,payload);
+    else{var created=await api("POST","/api/counterparties",payload);localStorage.setItem(LS_CP,created.id);}
+    $("ovForm").classList.remove("show");
+    await loadCps();renderBook();
+  }catch(err){alert(err.message);}
+});
+$("firstCp").addEventListener("click",function(){openForm(null);});
+$("editCp").addEventListener("click",function(){openForm(currentCp);});
+
+/* своя задача */
+$("addBtn").addEventListener("click",function(){
+  $("taskCpName").textContent="Для: "+currentCp.name;
+  $("k-title").value="";$("k-note").value="";$("k-date").value=new Date().toISOString().slice(0,10);
+  $("ovTask").classList.add("show");
+});
+$("taskCancel").addEventListener("click",function(){$("ovTask").classList.remove("show");});
+$("taskSave").addEventListener("click",async function(){
+  var title=$("k-title").value.trim(),date=$("k-date").value;
+  if(!title||!date)return alert("Укажите название и дату");
+  try{await api("POST","/api/custom-tasks",{counterparty_id:currentCp.id,title:title,due_date:date,note:$("k-note").value.trim()||null});
+    $("ovTask").classList.remove("show");await loadEvents();}catch(err){alert(err.message);}
+});
+
+// закрытие модалок по клику на фон
+document.querySelectorAll(".overlay").forEach(function(o){
+  o.addEventListener("click",function(e){if(e.target===o)o.classList.remove("show");});
+});
+
+boot();
+</script>
+</body>
+</html>
