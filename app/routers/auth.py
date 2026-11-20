@@ -102,6 +102,22 @@ def totp_verify(body: TotpCode, user: User = Depends(security.current_user),
     return {"ok": True}
 
 
+@router.post("/2fa/disable")
+def totp_disable(body: TotpCode, user: User = Depends(security.current_user),
+                 db: Session = Depends(get_db)):
+    """Отключить 2FA. Требует действующий код для подтверждения."""
+    if not user.totp_enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Двухфакторная аутентификация не включена")
+    if not security.verify_totp(user.totp_secret, body.code):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Неверный код")
+    user.totp_enabled = False
+    user.totp_secret = None
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/logout")
 def logout(response: Response):
     security.clear_auth_cookies(response)

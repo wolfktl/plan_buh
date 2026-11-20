@@ -120,6 +120,7 @@
   <div class="topbar">
     <h1><span class="em">📅</span>Планировщик бухгалтера</h1>
     <button class="icon-btn" id="cpBook">📇 Контрагенты</button>
+    <button class="icon-btn" id="settingsBtn">⚙️ Настройки</button>
     <button class="icon-btn ghost" id="logoutBtn">Выйти</button>
   </div>
 
@@ -238,6 +239,47 @@
     <div class="acts">
       <button class="btn ghost" id="taskCancel">Отмена</button>
       <button class="btn primary" id="taskSave">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: настройки -->
+<div class="overlay" id="ovSettings">
+  <div class="modal" style="max-width:430px">
+    <h3>Настройки</h3>
+    <div class="hint" id="setUser"></div>
+
+    <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:14px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">Двухфакторная аутентификация (2FA)</div>
+      <div class="hint" id="twofaStatus"></div>
+
+      <div id="twofaOff">
+        <button class="btn primary" id="twofaStart" style="margin-top:8px">Включить 2FA</button>
+      </div>
+
+      <div id="twofaSetup" style="display:none">
+        <div style="text-align:center;margin:12px 0">
+          <img id="set-qr" alt="QR" style="width:180px;height:180px;border:1px solid var(--line);border-radius:12px;padding:8px;background:#fff">
+        </div>
+        <div class="hint">Отсканируйте QR в Google Authenticator / Яндекс.Ключ / 2FAS. Не сканируется — введите ключ вручную:</div>
+        <div id="set-secret" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;word-break:break-all;color:var(--muted);margin-top:6px"></div>
+        <label>Код из приложения</label>
+        <input id="set-code" inputmode="numeric" maxlength="6" placeholder="000000" style="letter-spacing:4px;text-align:center;font-weight:700">
+        <div class="acts">
+          <button class="btn ghost" id="twofaCancel">Отмена</button>
+          <button class="btn primary" id="twofaVerify">Подтвердить и включить</button>
+        </div>
+      </div>
+
+      <div id="twofaOn" style="display:none">
+        <label>Код из приложения для отключения</label>
+        <input id="off-code" inputmode="numeric" maxlength="6" placeholder="000000" style="letter-spacing:4px;text-align:center;font-weight:700">
+        <button class="btn" id="twofaDisable" style="background:var(--danger);color:#fff;margin-top:10px">Отключить 2FA</button>
+      </div>
+    </div>
+
+    <div class="acts" style="margin-top:16px">
+      <button class="btn ghost" id="setClose">Закрыть</button>
     </div>
   </div>
 </div>
@@ -497,6 +539,51 @@ $("taskSave").addEventListener("click",async function(){
   if(!title||!date)return alert("Укажите название и дату");
   try{await api("POST","/api/custom-tasks",{counterparty_id:currentCp.id,title:title,due_date:date,note:$("k-note").value.trim()||null});
     $("ovTask").classList.remove("show");await loadEvents();}catch(err){alert(err.message);}
+});
+
+/* ---------- настройки / 2FA ---------- */
+var twofaEnabled=false;
+async function openSettings(){
+  try{
+    var st=await (await fetch("/api/auth/status")).json();
+    var u=st.user||{};
+    twofaEnabled=!!u.totp_enabled;
+    $("setUser").textContent="Пользователь: "+(u.username||"");
+    renderTwofa();
+    $("ovSettings").classList.add("show");
+  }catch(e){alert("Не удалось загрузить настройки");}
+}
+function renderTwofa(){
+  $("twofaSetup").style.display="none";
+  if(twofaEnabled){
+    $("twofaStatus").innerHTML='Статус: <b style="color:var(--ok)">включена</b>. Код запрашивается при каждом входе.';
+    $("twofaOff").style.display="none";$("twofaOn").style.display="block";$("off-code").value="";
+  }else{
+    $("twofaStatus").innerHTML='Статус: <b style="color:var(--danger)">выключена</b>. Рекомендуем включить для защиты данных.';
+    $("twofaOff").style.display="block";$("twofaOn").style.display="none";
+  }
+}
+$("settingsBtn").addEventListener("click",openSettings);
+$("setClose").addEventListener("click",function(){$("ovSettings").classList.remove("show");});
+$("twofaStart").addEventListener("click",async function(){
+  try{
+    var d=await api("POST","/api/auth/2fa/init");
+    $("set-qr").src=d.qr;$("set-secret").textContent=d.secret;
+    $("twofaOff").style.display="none";$("twofaSetup").style.display="block";
+    $("set-code").value="";$("set-code").focus();
+  }catch(e){alert(e.message);}
+});
+$("twofaCancel").addEventListener("click",function(){renderTwofa();});
+$("twofaVerify").addEventListener("click",async function(){
+  var c=$("set-code").value.trim();if(c.length<6)return alert("Введите 6-значный код");
+  try{await api("POST","/api/auth/2fa/verify",{code:c});twofaEnabled=true;renderTwofa();alert("Двухфакторная аутентификация включена");}
+  catch(e){alert(e.message);}
+});
+$("twofaDisable").addEventListener("click",async function(){
+  var c=$("off-code").value.trim();if(c.length<6)return alert("Введите код из приложения");
+  if(!confirm("Отключить двухфакторную аутентификацию?"))return;
+  try{await api("POST","/api/auth/2fa/disable",{code:c});twofaEnabled=false;renderTwofa();alert("Двухфакторная аутентификация отключена");}
+  catch(e){alert(e.message);}
 });
 
 // закрытие модалок по клику на фон

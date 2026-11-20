@@ -75,17 +75,6 @@
     <button class="btn" id="t-btn">Подтвердить</button>
   </div>
 
-  <!-- Настройка 2FA -->
-  <div class="screen" id="sc-setup2fa">
-    <div class="sub">Включите двухфакторную аутентификацию. Отсканируйте QR-код в приложении-аутентификаторе.</div>
-    <div class="qrwrap"><img id="s-qr" alt="QR"></div>
-    <div class="steps">Не сканируется? Введите ключ вручную:</div>
-    <div class="secret" id="s-secret"></div>
-    <label>Код из приложения для подтверждения</label>
-    <input id="s-code" class="code-input" inputmode="numeric" maxlength="6" placeholder="000000">
-    <button class="btn" id="s-btn">Включить 2FA</button>
-  </div>
-
   <div class="msg" id="msg"></div>
   <div class="foot">Данные хранятся на вашем сервере. Сессия защищена паролем и одноразовым кодом.</div>
 </div>
@@ -109,7 +98,6 @@ async function boot(){
   try{
     var st=await (await fetch("/api/auth/status")).json();
     if(st.needs_setup){show("sc-register");$("head").textContent="Первичная настройка";}
-    else if(st.authenticated && st.user && !st.user.totp_enabled){startSetup2fa();}
     else if(st.authenticated){location.href="/";}
     else show("sc-login");
   }catch(e){show("sc-login");}
@@ -125,8 +113,8 @@ $("r-btn").onclick=async function(){
   this.disabled=true;
   try{
     await api("/api/auth/register",{username:u,password:p});
-    var res=await api("/api/auth/login",{username:u,password:p});
-    if(res.need_setup_2fa){startSetup2fa();}
+    await api("/api/auth/login",{username:u,password:p});
+    location.href="/";
   }catch(e){msg(e.message);this.disabled=false;}
 };
 
@@ -139,7 +127,6 @@ $("l-btn").onclick=async function(){
   try{
     var res=await api("/api/auth/login",{username:u,password:p});
     if(res.totp_required){show("sc-totp");$("t-code").focus();}
-    else if(res.need_setup_2fa){startSetup2fa();}
     else location.href="/";
   }catch(e){msg(e.message);}
   this.disabled=false;
@@ -156,25 +143,6 @@ $("t-btn").onclick=async function(){
   catch(e){msg(e.message);this.disabled=false;}
 };
 $("t-code").addEventListener("keydown",function(e){if(e.key==="Enter")$("t-btn").click();});
-
-// --- настройка 2FA ---
-async function startSetup2fa(){
-  show("sc-setup2fa");$("head").textContent="Двухфакторная защита";
-  try{
-    var d=await api("/api/auth/2fa/init");
-    $("s-qr").src=d.qr;
-    $("s-secret").textContent=d.secret;
-  }catch(e){msg(e.message);}
-}
-$("s-btn").onclick=async function(){
-  clearMsg();
-  var c=$("s-code").value.trim();
-  if(c.length<6){return msg("Введите код из приложения");}
-  this.disabled=true;
-  try{await api("/api/auth/2fa/verify",{code:c});location.href="/";}
-  catch(e){msg(e.message);this.disabled=false;}
-};
-$("s-code").addEventListener("keydown",function(e){if(e.key==="Enter")$("s-btn").click();});
 
 boot();
 </script>
