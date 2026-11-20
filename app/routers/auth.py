@@ -26,7 +26,8 @@ def auth_status(request: Request, db: Session = Depends(get_db)):
         if payload and payload.get("scope") == "session":
             u = db.get(User, int(payload["sub"]))
             if u and u.is_active:
-                user = {"username": u.username, "totp_enabled": u.totp_enabled}
+                user = {"username": u.username, "totp_enabled": u.totp_enabled,
+                        "role": u.role}
     return {"needs_setup": needs_setup, "authenticated": user is not None, "user": user}
 
 
@@ -37,7 +38,8 @@ def register(creds: Credentials, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Регистрация закрыта: администратор уже создан")
     user = User(username=creds.username.strip(),
-                password_hash=security.hash_password(creds.password))
+                password_hash=security.hash_password(creds.password),
+                role="admin")  # первый пользователь — администратор
     db.add(user)
     db.commit()
     return {"ok": True}

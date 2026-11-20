@@ -120,6 +120,7 @@
   <div class="topbar">
     <h1><span class="em">📅</span>Планировщик бухгалтера</h1>
     <button class="icon-btn" id="cpBook">📇 Контрагенты</button>
+    <button class="icon-btn" id="usersBtn" style="display:none">👥 Пользователи</button>
     <button class="icon-btn" id="settingsBtn">⚙️ Настройки</button>
     <button class="icon-btn ghost" id="logoutBtn">Выйти</button>
   </div>
@@ -243,6 +244,31 @@
   </div>
 </div>
 
+<!-- Модалка: пользователи (админ) -->
+<div class="overlay" id="ovUsers">
+  <div class="modal" style="max-width:560px">
+    <h3>Пользователи</h3>
+    <div class="hint">Учётные записи и роли. У каждого пользователя свой список контрагентов.</div>
+    <div class="cp-list" id="usersList"></div>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
+      <div style="font-weight:600;font-size:13.5px;margin-bottom:6px">Добавить пользователя</div>
+      <div class="grid2">
+        <div><label>Логин</label><input id="nu-user" placeholder="ivanova"></div>
+        <div><label>Пароль</label><input id="nu-pass" type="password" placeholder="мин. 6 символов"></div>
+      </div>
+      <label>Роль</label>
+      <select id="nu-role">
+        <option value="user">Пользователь</option>
+        <option value="admin">Администратор</option>
+      </select>
+      <button class="btn primary" id="nu-add" style="margin-top:10px">Создать</button>
+    </div>
+    <div class="acts" style="margin-top:14px">
+      <button class="btn ghost" id="usersClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <!-- Модалка: настройки -->
 <div class="overlay" id="ovSettings">
   <div class="modal" style="max-width:430px">
@@ -325,6 +351,12 @@ var editingId=null;
 
 /* ---------- boot ---------- */
 async function boot(){
+  // кто вошёл + показать админ-кнопку
+  try{
+    var st=await (await fetch("/api/auth/status")).json();
+    CURRENT_USER=st.user||null;
+    if(CURRENT_USER&&CURRENT_USER.role==="admin")$("usersBtn").style.display="";
+  }catch(e){}
   try{await loadCps();}catch(e){return;}
   // восстановить фильтры в UI
   document.querySelectorAll(".chip[data-cat]").forEach(function(ch){
@@ -539,6 +571,65 @@ $("taskSave").addEventListener("click",async function(){
   if(!title||!date)return alert("Укажите название и дату");
   try{await api("POST","/api/custom-tasks",{counterparty_id:currentCp.id,title:title,due_date:date,note:$("k-note").value.trim()||null});
     $("ovTask").classList.remove("show");await loadEvents();}catch(err){alert(err.message);}
+});
+
+/* ---------- админ: пользователи ---------- */
+var CURRENT_USER=null;
+var ROLE_NAME={admin:"Администратор",user:"Пользователь"};
+
+async function openUsers(){try{await loadUsers();$("ovUsers").classList.add("show");}catch(e){alert(e.message);}}
+async function loadUsers(){
+  var users=await api("GET","/api/admin/users");
+  var el=$("usersList");el.innerHTML="";
+  users.forEach(function(u){
+    var me=CURRENT_USER&&u.username===CURRENT_USER.username;
+    var d=document.createElement("div");d.className="cp-item";d.style.flexWrap="wrap";
+    var roleSel='<select data-role="'+u.id+'" style="padding:4px 8px;font-size:12px">'+
+      '<option value="user"'+(u.role==="user"?" selected":"")+'>Пользователь</option>'+
+      '<option value="admin"'+(u.role==="admin"?" selected":"")+'>Администратор</option></select>';
+    var status=u.is_active?'<span style="color:var(--ok)">активен</span>':'<span style="color:var(--danger)">отключён</span>';
+    d.innerHTML=
+      '<div style="min-width:160px"><div class="nm">'+escapeHtml(u.username)+(me?' <span class="cp-tag">вы</span>':'')+'</div>'+
+      '<div class="meta">'+status+' · 2FA: '+(u.totp_enabled?"вкл":"выкл")+'</div></div>'+
+      '<div class="sp"></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">'+
+      roleSel+
+      '<button class="lnk" data-pass="'+u.id+'">пароль</button>'+
+      (u.totp_enabled?'<button class="lnk" data-r2fa="'+u.id+'">сброс 2FA</button>':'')+
+      (me?'':'<button class="lnk" data-toggle="'+u.id+'" data-act="'+(u.is_active?0:1)+'">'+(u.is_active?"отключить":"включить")+'</button>')+
+      (me?'':'<button class="lnk red" data-deluser="'+u.id+'">удалить</button>')+
+      '</div>';
+    el.appendChild(d);
+  });
+}
+$("usersBtn").addEventListener("click",openUsers);
+$("usersClose").addEventListener("click",function(){$("ovUsers").classList.remove("show");});
+$("nu-add").addEventListener("click",async function(){
+  var u=$("nu-user").value.trim(),p=$("nu-pass").value,r=$("nu-role").value;
+  if(u.length<3)return alert("Логин — минимум 3 символа");
+  if(p.length<6)return alert("Пароль — минимум 6 символов");
+  try{await api("POST","/api/admin/users",{username:u,password:p,role:r});
+    $("nu-user").value="";$("nu-pass").value="";await loadUsers();}catch(e){alert(e.message);}
+});
+$("usersList").addEventListener("change",async function(ev){
+  var s=ev.target.closest("select[data-role]");if(!s)return;
+  try{await api("PUT","/api/admin/users/"+s.getAttribute("data-role"),{role:s.value});await loadUsers();}
+  catch(e){alert(e.message);await loadUsers();}
+});
+$("usersList").addEventListener("click",async function(ev){
+  var pass=ev.target.closest("[data-pass]"),r2fa=ev.target.closest("[data-r2fa]"),
+      tog=ev.target.closest("[data-toggle]"),del=ev.target.closest("[data-deluser]");
+  try{
+    if(pass){var np=prompt("Новый пароль (мин. 6 символов):");if(!np)return;
+      if(np.length<6)return alert("Слишком короткий пароль");
+      await api("POST","/api/admin/users/"+pass.getAttribute("data-pass")+"/password",{password:np});
+      alert("Пароль обновлён");}
+    else if(r2fa){if(!confirm("Сбросить 2FA этому пользователю?"))return;
+      await api("POST","/api/admin/users/"+r2fa.getAttribute("data-r2fa")+"/reset-2fa");await loadUsers();}
+    else if(tog){await api("PUT","/api/admin/users/"+tog.getAttribute("data-toggle"),{is_active:tog.getAttribute("data-act")==="1"});await loadUsers();}
+    else if(del){if(!confirm("Удалить пользователя со всеми его контрагентами?"))return;
+      await api("DELETE","/api/admin/users/"+del.getAttribute("data-deluser"));await loadUsers();}
+  }catch(e){alert(e.message);}
 });
 
 /* ---------- настройки / 2FA ---------- */

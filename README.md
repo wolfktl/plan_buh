@@ -23,11 +23,18 @@ Self-hosted веб-приложение для ведения сроков сд�
 - **Аутентификация** — пароль (bcrypt) + опциональная 2FA (TOTP, совместимо
   с Google Authenticator, Яндекс.Ключ, 2FAS и др.), которую пользователь
   включает и отключает в разделе «Настройки». Сессии в httpOnly-cookie (JWT).
+- **Пользователи и роли** — многопользовательский режим с ролями `admin`
+  и `user`. Первый зарегистрированный — администратор. В разделе «Пользователи»
+  (виден только администратору) можно заводить учётные записи, менять роли,
+  сбрасывать пароль и 2FA, отключать и удалять пользователей. У каждого
+  пользователя свой изолированный список контрагентов. Нельзя снять права или
+  удалить последнего администратора.
 
 ## Технологии
 
-FastAPI · SQLAlchemy · SQLite · bcrypt · PyJWT · pyotp · Docker.
+FastAPI · SQLAlchemy · PostgreSQL · bcrypt · PyJWT · pyotp · Docker.
 Фронтенд — статический HTML/CSS/JS без внешних CDN.
+(Для локального запуска без Docker поддерживается SQLite.)
 
 ## Быстрый старт
 
@@ -36,16 +43,21 @@ git clone https://github.com/wolfktl/plan_buh.git
 cd plan_buh
 
 cp .env.example .env
-# сгенерируйте секрет и впишите его в .env:
+# сгенерируйте секреты и впишите в .env:
 sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$(openssl rand -base64 48)|" .env
+sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -base64 24)|" .env
 
 docker compose up -d --build
 ```
 
+Поднимаются два сервиса: `db` (PostgreSQL) и `app`; приложение ждёт готовности
+БД по healthcheck.
+
 Откройте `http://<сервер>:8080` (порт настраивается через `APP_PORT`).
-При первом входе создайте учётную запись администратора. Двухфакторную
-аутентификацию можно включить позже в разделе «Настройки» (⚙️): отсканируйте
-QR-код в приложении-аутентификаторе. Там же её можно отключить.
+При первом входе создайте учётную запись — она становится **администратором**.
+Остальных пользователей администратор заводит в разделе «Пользователи» (👥).
+Двухфакторную аутентификацию каждый включает сам в разделе «Настройки» (⚙️):
+отсканируйте QR-код в приложении-аутентификаторе; там же её можно отключить.
 
 ## Конфигурация (.env)
 
@@ -58,16 +70,25 @@ QR-код в приложении-аутентификаторе. Там же е
 | `TOTP_ISSUER` | Имя в приложении-аутентификаторе | `ПланБух` |
 | `SESSION_TTL_MIN` | Срок жизни сессии, мин | `720` |
 | `PREAUTH_TTL_MIN` | Время на ввод кода 2FA, мин | `5` |
-| `DB_PATH` | Путь к файлу SQLite | `/data/plan_buh.db` |
-| `DATABASE_URL` | Внешняя БД (переопределяет `DB_PATH`) | — |
+| `POSTGRES_USER` | Пользователь БД | `planbuh` |
+| `POSTGRES_PASSWORD` | Пароль БД (обязателен) | — |
+| `POSTGRES_DB` | Имя БД | `plan_buh` |
+| `DATABASE_URL` | Полный URL БД (переопределяет `POSTGRES_*`) | — |
+| `DB_PATH` | Файл SQLite (только запуск без Docker) | `/data/plan_buh.db` |
+
+Выбор БД: задан `DATABASE_URL` → используется он; иначе заданы `POSTGRES_*`
+→ PostgreSQL; иначе SQLite по `DB_PATH`.
 
 ## Данные и бэкап
 
-БД SQLite лежит в именованном volume `plan_buh_data` (`/data` в контейнере).
+Данные PostgreSQL лежат в именованном volume `pgdata`.
 
 ```bash
 # бэкап
-docker compose cp app:/data/plan_buh.db ./plan_buh-$(date +%F).db
+docker compose exec db pg_dump -U planbuh plan_buh > plan_buh-$(date +%F).sql
+
+# восстановление
+cat plan_buh-YYYY-MM-DD.sql | docker compose exec -T db psql -U planbuh plan_buh
 ```
 
 ## Эксплуатация за reverse-proxy
@@ -89,6 +110,7 @@ location / {
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+# без POSTGRES_* приложение возьмёт локальный SQLite
 export SECRET_KEY=dev-secret DB_PATH=./plan_buh.db
 uvicorn app.main:app --reload --port 8000
 ```
@@ -108,11 +130,12 @@ app/
   calendar_gen.py    генерация налогового календаря 2026
   routers/
     auth.py          вход, регистрация, 2FA
+    admin.py         управление пользователями (роль admin)
     counterparties.py  CRUD контрагентов
     planner.py       события, отметки, свои задачи
   static/
-    login.html       вход и настройка 2FA
-    index.html       основное приложение
+    login.html       вход
+    index.html       основное приложение (планировщик, настройки, пользователи)
 ```
 
 ## Оговорка

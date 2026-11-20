@@ -23,6 +23,13 @@ class Settings:
     DB_PATH: str = os.getenv("DB_PATH", "/data/plan_buh.db")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
+    # Компоненты подключения к PostgreSQL (если DATABASE_URL не задан целиком)
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "plan_buh")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
+
     # Отправлять cookie только по HTTPS. Включите за reverse-proxy с TLS.
     COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
     COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax")
@@ -34,8 +41,16 @@ class Settings:
 
     @property
     def sqlalchemy_url(self) -> str:
+        # 1) Явный DATABASE_URL имеет приоритет.
         if self.DATABASE_URL:
             return self.DATABASE_URL
+        # 2) Собираем PostgreSQL URL из компонентов (режим docker-compose).
+        if self.POSTGRES_HOST and self.POSTGRES_USER:
+            from urllib.parse import quote
+            pw = quote(self.POSTGRES_PASSWORD, safe="")
+            return (f"postgresql+psycopg://{self.POSTGRES_USER}:{pw}"
+                    f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
+        # 3) Фолбэк для локальной разработки — SQLite.
         return f"sqlite:///{self.DB_PATH}"
 
 

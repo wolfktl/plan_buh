@@ -20,6 +20,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     totp_secret = Column(String(64), nullable=True)
     totp_enabled = Column(Boolean, default=False, nullable=False)
+    role = Column(String(16), default="user", nullable=False)  # admin | user
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=utcnow, nullable=False)
 

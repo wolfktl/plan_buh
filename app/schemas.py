@@ -1,6 +1,6 @@
 """Pydantic-схемы запросов/ответов."""
-from datetime import date
-from typing import Optional
+from datetime import date, datetime
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +13,34 @@ class Credentials(BaseModel):
 
 class TotpCode(BaseModel):
     code: str = Field(min_length=6, max_length=10)
+
+
+# ---- админ: пользователи ----
+class AdminUserOut(BaseModel):
+    id: int
+    username: str
+    role: str
+    totp_enabled: bool
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AdminUserCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=6, max_length=128)
+    role: Literal["admin", "user"] = "user"
+
+
+class AdminUserUpdate(BaseModel):
+    role: Optional[Literal["admin", "user"]] = None
+    is_active: Optional[bool] = None
+
+
+class AdminPasswordReset(BaseModel):
+    password: str = Field(min_length=6, max_length=128)
 
 
 # ---- counterparties ----

@@ -127,3 +127,11 @@ def preauth_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Сессия подтверждения истекла, войдите снова")
     return user
+
+
+def require_admin(user: User = Depends(current_user)) -> User:
+    """Доступ только для администраторов."""
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Требуются права администратора")
+    return user

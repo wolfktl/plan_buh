@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import init_db
-from .routers import auth, counterparties, planner
+from .routers import admin, auth, counterparties, planner
 from .security import SESSION_COOKIE, _decode
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -18,6 +18,7 @@ app = FastAPI(title=settings.APP_TITLE, docs_url="/api/docs", openapi_url="/api/
 init_db()
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(counterparties.router)
 app.include_router(planner.router)
 
