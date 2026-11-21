@@ -273,6 +273,7 @@
       </div>
       <div style="flex:1"></div>
       <label class="toggle" style="margin-right:4px"><input type="checkbox" id="calShowTax" checked> налоговые сроки</label>
+      <label class="toggle" style="margin-right:4px"><input type="checkbox" id="calShowHol" checked> праздники</label>
       <button class="icon-btn" id="calToday">Сегодня</button>
     </div>
     <div class="cal-layout">
@@ -994,7 +995,7 @@ $("twofaDisable").addEventListener("click",async function(){
 /* ================= КАЛЕНДАРЬ-СЕТКА + ЗАМЕТКИ ================= */
 var viewMode=localStorage.getItem("pb_viewmode")||"calendar";
 var calYear,calMonth,calEvents=null,eventsByDate={},allNotes=[],editingNote=null,editingOccDate=null;
-var calShowTax=true,selectedColor=null;
+var calShowTax=true,calShowHol=true,selectedColor=null;
 var HOLIDAY_NAMES={
   "2026-01-01":"Новый год","2026-01-07":"Рождество Христово",
   "2026-02-23":"День защитника Отечества","2026-03-08":"Межд. женский день",
@@ -1150,7 +1151,7 @@ function renderCalendar(){
     cell.className="cal-cell"+(out?" out":"")+(we?" we":"")+(iso===todayIso?" today":"");
     cell.setAttribute("data-date",iso);
     var html='<div class="cal-num">'+d.getDate()+'</div>';
-    if(HOLIDAY_NAMES[iso])html+='<div class="cal-chip hol" title="'+escapeHtml(HOLIDAY_NAMES[iso])+'">'+escapeHtml(HOLIDAY_NAMES[iso])+'</div>';
+    if(calShowHol&&HOLIDAY_NAMES[iso])html+='<div class="cal-chip hol" title="'+escapeHtml(HOLIDAY_NAMES[iso])+'">'+escapeHtml(HOLIDAY_NAMES[iso])+'</div>';
     var items=[];
     if(calShowTax&&eventsByDate[iso])eventsByDate[iso].forEach(function(ev){items.push({tax:true,ev:ev});});
     notesOn(iso).forEach(function(n){items.push({tax:false,note:n});});
@@ -1175,6 +1176,7 @@ $("calPrev").addEventListener("click",function(){calMonth--;if(calMonth<0){calMo
 $("calNext").addEventListener("click",function(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();});
 $("calToday").addEventListener("click",function(){var n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();renderCalendar();});
 $("calShowTax").addEventListener("change",function(e){calShowTax=e.target.checked;renderCalendar();});
+$("calShowHol").addEventListener("change",function(e){calShowHol=e.target.checked;renderCalendar();});
 
 $("calGrid").addEventListener("click",function(e){
   var noteChip=e.target.closest("[data-note]"),evChip=e.target.closest("[data-ev]"),cell=e.target.closest(".cal-cell");
