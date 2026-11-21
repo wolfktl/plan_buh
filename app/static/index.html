@@ -92,6 +92,50 @@
   .empty{text-align:center;color:var(--muted);padding:44px 20px;font-size:14px}
   .empty .big{font-size:34px;margin-bottom:10px}
 
+  /* переключатель вида */
+  .viewbar{margin-top:14px}
+  .viewbar .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
+  .viewbar .seg button{border:0;background:transparent;padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  .viewbar .seg button.on{background:var(--accent);color:#fff}
+
+  /* календарь-сетка */
+  #calendarView{margin-top:14px}
+  .cal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .cal-nav{display:flex;align-items:center;gap:8px}
+  .cal-title{font-size:17px;font-weight:700;min-width:150px;text-align:center;text-transform:capitalize}
+  .cal-arrow{width:34px;height:34px;border:1px solid var(--line);background:#fff;border-radius:9px;font-size:20px;line-height:1;color:var(--ink);cursor:pointer}
+  .cal-arrow:hover{background:var(--bg)}
+  .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+  .cal-dow div{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;padding:2px 6px}
+  .cal-dow .we{color:#c76}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-cell{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:104px;padding:5px 6px;
+    display:flex;flex-direction:column;gap:3px;cursor:pointer;overflow:hidden;transition:.1s}
+  .cal-cell:hover{border-color:#cfd8e6;box-shadow:var(--shadow)}
+  .cal-cell.out{background:#f8fafc;opacity:.55}
+  .cal-cell.we .cal-num{color:#c76}
+  .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .cal-num{font-size:13px;font-weight:700;align-self:flex-start;min-width:20px;text-align:center;border-radius:6px;padding:1px 4px}
+  .cal-cell.today .cal-num{background:var(--accent);color:#fff}
+  .cal-chip{font-size:10.5px;line-height:1.25;border-radius:5px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-chip.tax{background:var(--bg);border-left:3px solid var(--cc,#94a3b8);color:#334155}
+  .cal-chip.note{color:#fff;font-weight:600}
+  .cal-chip.note.done{opacity:.55;text-decoration:line-through}
+  .cal-more{font-size:10px;color:var(--muted);padding-left:4px}
+  .cal-legend{margin-top:10px;font-size:11.5px;color:var(--muted);text-align:center}
+  @media(max-width:620px){
+    .cal-cell{min-height:76px}
+    .cal-chip{font-size:9.5px}
+    .cal-dow div{font-size:9px;padding:2px}
+  }
+
+  /* палитра цветов заметки */
+  .palette{display:flex;gap:9px;flex-wrap:wrap;margin-top:6px}
+  .sw{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;position:relative}
+  .sw.on{border-color:var(--ink)}
+  .sw.none{background:#fff;border:2px dashed #cbd5e1}
+  .sw.none::after{content:"✕";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px}
+
   /* modal */
   .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
   .overlay.show{display:flex}
@@ -123,6 +167,13 @@
     <button class="icon-btn" id="usersBtn" style="display:none">👥 Пользователи</button>
     <button class="icon-btn" id="settingsBtn">⚙️ Настройки</button>
     <button class="icon-btn ghost" id="logoutBtn">Выйти</button>
+  </div>
+
+  <div class="viewbar">
+    <div class="seg" id="viewMode">
+      <button data-mode="calendar" class="on">📅 Календарь</button>
+      <button data-mode="list">📋 По контрагенту</button>
+    </div>
   </div>
 
   <div class="cpbar">
@@ -178,6 +229,28 @@
     <div class="big">📇</div>
     Добавьте первого контрагента, чтобы вести по нему сроки сдачи и уплаты.<br>
     <button class="addbtn" id="firstCp" style="margin-top:14px">+ Добавить контрагента</button>
+  </div>
+
+  <!-- Календарь-сетка (месяц) -->
+  <div id="calendarView" style="display:none">
+    <div class="cal-head">
+      <div class="cal-nav">
+        <button class="cal-arrow" id="calPrev" aria-label="Предыдущий месяц">‹</button>
+        <div class="cal-title" id="calTitle"></div>
+        <button class="cal-arrow" id="calNext" aria-label="Следующий месяц">›</button>
+      </div>
+      <div style="flex:1"></div>
+      <label class="toggle" style="margin-right:4px"><input type="checkbox" id="calShowTax" checked> налоговые сроки</label>
+      <button class="icon-btn" id="calToday">Сегодня</button>
+    </div>
+    <div class="cal-dow">
+      <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div>
+      <div class="we">Сб</div><div class="we">Вс</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legend">
+      <span>Клик по дню — добавить заметку · клик по заметке — изменить</span>
+    </div>
   </div>
 
   <footer>
@@ -241,6 +314,38 @@
       <button class="btn ghost" id="taskCancel">Отмена</button>
       <button class="btn primary" id="taskSave">Добавить</button>
     </div>
+  </div>
+</div>
+
+<!-- Модалка: заметка -->
+<div class="overlay" id="ovNote">
+  <div class="modal" style="max-width:420px">
+    <h3 id="noteModalTitle">Новая заметка</h3>
+    <label>Заголовок *</label>
+    <input id="note-title" placeholder="Напр. Сдать НДС">
+    <label>Дата</label>
+    <input id="note-date" type="date">
+    <label>Заметка</label>
+    <textarea id="note-text" rows="3" placeholder="Добавьте заметку…" style="resize:vertical"></textarea>
+    <label>Цвет</label>
+    <div class="palette" id="note-palette"></div>
+    <label class="toggle" style="margin-top:12px"><input type="checkbox" id="note-done"> выполнено</label>
+    <div class="acts">
+      <button class="btn ghost" id="noteDelete" style="color:var(--danger);display:none">Удалить</button>
+      <button class="btn ghost" id="noteCancel">Отмена</button>
+      <button class="btn primary" id="noteSave">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: просмотр налогового события -->
+<div class="overlay" id="ovEvent">
+  <div class="modal" style="max-width:400px">
+    <h3 id="evModalTitle" style="font-size:15px">Событие</h3>
+    <div class="hint" id="evModalDate"></div>
+    <div class="badges" id="evModalBadges" style="margin:8px 0"></div>
+    <div id="evModalNote" style="font-size:13px;color:var(--muted)"></div>
+    <div class="acts"><button class="btn ghost" id="evClose">Закрыть</button></div>
   </div>
 </div>
 
@@ -365,6 +470,9 @@ async function boot(){
   document.querySelectorAll("#viewSeg button").forEach(function(b){
     b.classList.toggle("on",b.getAttribute("data-v")===view);});
   $("showNA").checked=showNA;
+  // вид по умолчанию: календарь (общий просмотр, работает и без контрагентов)
+  applyViewMode();
+  if(viewMode==="calendar")loadCalendar();
 }
 
 async function loadCps(){
@@ -676,6 +784,168 @@ $("twofaDisable").addEventListener("click",async function(){
   try{await api("POST","/api/auth/2fa/disable",{code:c});twofaEnabled=false;renderTwofa();alert("Двухфакторная аутентификация отключена");}
   catch(e){alert(e.message);}
 });
+
+/* ================= КАЛЕНДАРЬ-СЕТКА + ЗАМЕТКИ ================= */
+var viewMode=localStorage.getItem("pb_viewmode")||"calendar";
+var calYear,calMonth,calEvents=null,eventsByDate={},notesByDate={},editingNote=null;
+var calShowTax=true,selectedColor=null;
+var COLORS=[
+  {k:null, hex:null}, {k:"red",hex:"#e2556e"}, {k:"orange",hex:"#ef8e58"},
+  {k:"yellow",hex:"#eab308"}, {k:"green",hex:"#2f9e55"}, {k:"teal",hex:"#179e90"},
+  {k:"blue",hex:"#3b82f6"}, {k:"purple",hex:"#9b59c7"}, {k:"gray",hex:"#64748b"}];
+var COLOR_HEX={};COLORS.forEach(function(c){if(c.k)COLOR_HEX[c.k]=c.hex;});
+var CAL_HOLIDAYS=new Set(["2026-01-01","2026-01-02","2026-01-05","2026-01-06","2026-01-07",
+  "2026-01-08","2026-01-09","2026-02-23","2026-03-09","2026-05-01","2026-05-11",
+  "2026-06-12","2026-11-04","2026-12-31"]);
+var MON_FULL=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август",
+  "Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+function isoOf(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+
+function applyViewMode(){
+  var cal=viewMode==="calendar";
+  $("calendarView").style.display=cal?"block":"none";
+  $("cpbar").style.display=cal?"none":"flex";
+  var dc=document.querySelector(".disclaimer");if(dc)dc.style.display=cal?"none":"flex";
+  if(cal){$("main").style.display="none";$("noCp").style.display="none";}
+  else{
+    if(currentCp){$("main").style.display="block";$("noCp").style.display="none";}
+    else{$("main").style.display="none";$("noCp").style.display="block";}
+  }
+  document.querySelectorAll("#viewMode button").forEach(function(b){
+    b.classList.toggle("on",b.getAttribute("data-mode")===viewMode);});
+}
+$("viewMode").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  viewMode=b.getAttribute("data-mode");localStorage.setItem("pb_viewmode",viewMode);
+  applyViewMode();
+  if(viewMode==="calendar")loadCalendar();
+});
+
+async function loadCalendar(){
+  if(calYear===undefined||calYear===null){var n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();}
+  if(!calEvents){
+    try{calEvents=(await api("GET","/api/events")).events;}catch(e){calEvents=[];}
+    eventsByDate={};
+    calEvents.forEach(function(ev){if(ev.custom)return;(eventsByDate[ev.date]=eventsByDate[ev.date]||[]).push(ev);});
+  }
+  try{var notes=await api("GET","/api/notes");notesByDate={};
+    notes.forEach(function(n){(notesByDate[n.note_date]=notesByDate[n.note_date]||[]).push(n);});
+  }catch(e){notesByDate={};}
+  renderCalendar();
+}
+
+function renderCalendar(){
+  $("calTitle").textContent=MON_FULL[calMonth]+" "+calYear;
+  var grid=$("calGrid");grid.innerHTML="";
+  var first=new Date(calYear,calMonth,1);
+  var offset=(first.getDay()+6)%7;          // понедельник — первый
+  var start=new Date(calYear,calMonth,1-offset);
+  var todayIso=isoOf(new Date());
+  for(var i=0;i<42;i++){
+    var d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+    var iso=isoOf(d);
+    var out=d.getMonth()!==calMonth;
+    var we=d.getDay()===0||d.getDay()===6||CAL_HOLIDAYS.has(iso);
+    var cell=document.createElement("div");
+    cell.className="cal-cell"+(out?" out":"")+(we?" we":"")+(iso===todayIso?" today":"");
+    cell.setAttribute("data-date",iso);
+    var html='<div class="cal-num">'+d.getDate()+'</div>';
+    var items=[];
+    if(calShowTax&&eventsByDate[iso])eventsByDate[iso].forEach(function(ev){items.push({tax:true,ev:ev});});
+    (notesByDate[iso]||[]).forEach(function(n){items.push({tax:false,note:n});});
+    var shown=items.slice(0,4);
+    shown.forEach(function(it){
+      if(it.tax){
+        var c=CATS[it.ev.cat]?CATS[it.ev.cat].c:"#94a3b8";
+        html+='<div class="cal-chip tax" style="--cc:'+c+'" data-ev="'+it.ev.key+'" title="'+escapeHtml(it.ev.title)+'">'+escapeHtml(it.ev.title)+'</div>';
+      }else{
+        var bg=it.note.color&&COLOR_HEX[it.note.color]?COLOR_HEX[it.note.color]:"#94a3b8";
+        html+='<div class="cal-chip note'+(it.note.done?" done":"")+'" style="background:'+bg+'" data-note="'+it.note.id+'">'+escapeHtml(it.note.title)+'</div>';
+      }
+    });
+    if(items.length>shown.length)html+='<div class="cal-more">+ ещё '+(items.length-shown.length)+'</div>';
+    cell.innerHTML=html;
+    grid.appendChild(cell);
+  }
+}
+
+$("calPrev").addEventListener("click",function(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();});
+$("calNext").addEventListener("click",function(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();});
+$("calToday").addEventListener("click",function(){var n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();renderCalendar();});
+$("calShowTax").addEventListener("change",function(e){calShowTax=e.target.checked;renderCalendar();});
+
+$("calGrid").addEventListener("click",function(e){
+  var noteChip=e.target.closest("[data-note]"),evChip=e.target.closest("[data-ev]"),cell=e.target.closest(".cal-cell");
+  if(noteChip){
+    var id=parseInt(noteChip.getAttribute("data-note"),10);
+    var iso=cell.getAttribute("data-date");
+    var note=(notesByDate[iso]||[]).find(function(n){return n.id===id;});
+    openNote(iso,note);return;
+  }
+  if(evChip){
+    var ev=(eventsByDate[cell.getAttribute("data-date")]||[]).find(function(x){return x.key===evChip.getAttribute("data-ev");});
+    if(ev)openEvent(ev);return;
+  }
+  if(cell)openNote(cell.getAttribute("data-date"),null);
+});
+
+/* ----- палитра ----- */
+function renderPalette(){
+  var el=$("note-palette");el.innerHTML="";
+  COLORS.forEach(function(c){
+    var sw=document.createElement("div");
+    sw.className="sw"+(c.k===null?" none":"")+((c.k||null)===selectedColor?" on":"");
+    if(c.hex)sw.style.background=c.hex;
+    sw.setAttribute("data-color",c.k===null?"":c.k);
+    sw.addEventListener("click",function(){selectedColor=c.k;renderPalette();});
+    el.appendChild(sw);
+  });
+}
+
+/* ----- модалка заметки ----- */
+function openNote(iso,note){
+  editingNote=note||null;
+  $("noteModalTitle").textContent=note?"Заметка":"Новая заметка";
+  $("note-title").value=note?note.title:"";
+  $("note-date").value=iso;
+  $("note-text").value=note&&note.text?note.text:"";
+  $("note-done").checked=note?note.done:false;
+  selectedColor=note?(note.color||null):null;
+  renderPalette();
+  $("noteDelete").style.display=note?"":"none";
+  $("ovNote").classList.add("show");
+  setTimeout(function(){$("note-title").focus();},30);
+}
+$("noteCancel").addEventListener("click",function(){$("ovNote").classList.remove("show");});
+$("noteSave").addEventListener("click",async function(){
+  var title=$("note-title").value.trim();if(!title)return alert("Укажите заголовок");
+  var payload={note_date:$("note-date").value,title:title,text:$("note-text").value.trim()||null,
+    color:selectedColor,done:$("note-done").checked};
+  try{
+    if(editingNote)await api("PUT","/api/notes/"+editingNote.id,payload);
+    else await api("POST","/api/notes",payload);
+    $("ovNote").classList.remove("show");await loadCalendar();
+  }catch(e){alert(e.message);}
+});
+$("noteDelete").addEventListener("click",async function(){
+  if(!editingNote||!confirm("Удалить заметку?"))return;
+  try{await api("DELETE","/api/notes/"+editingNote.id);$("ovNote").classList.remove("show");await loadCalendar();}
+  catch(e){alert(e.message);}
+});
+
+/* ----- модалка события ----- */
+function openEvent(ev){
+  var d=parseDate(ev.date);
+  $("evModalTitle").textContent=ev.title;
+  $("evModalDate").textContent=d.getDate()+" "+MONTHS[d.getMonth()]+" "+d.getFullYear()+", "+["вс","пн","вт","ср","чт","пт","сб"][d.getDay()];
+  var tc=ev.type==="pay"?"type-pay":(ev.type==="rep"?"type-rep":"type-not");
+  $("evModalBadges").innerHTML='<span class="badge cat" style="background:'+CATS[ev.cat].c+'">'+CATS[ev.cat].name+
+    '</span><span class="badge '+tc+'">'+TYPES[ev.type]+'</span>'+(ev.moved?'<span class="badge moved">⇄ перенос</span>':'');
+  $("evModalNote").textContent=ev.note||"";
+  $("ovEvent").classList.add("show");
+}
+$("evClose").addEventListener("click",function(){$("ovEvent").classList.remove("show");});
 
 // закрытие модалок по клику на фон
 document.querySelectorAll(".overlay").forEach(function(o){

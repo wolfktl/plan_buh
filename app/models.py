@@ -81,3 +81,19 @@ class CustomTask(Base):
     created_at = Column(DateTime, default=utcnow, nullable=False)
 
     counterparty = relationship("Counterparty", back_populates="custom_tasks")
+
+
+class Note(Base):
+    """Личная заметка пользователя в календаре (как в tweek): дата, заголовок,
+    текст, цвет, отметка выполнения."""
+    __tablename__ = "notes"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    note_date = Column(Date, nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    text = Column(Text, nullable=True)
+    color = Column(String(16), nullable=True)   # ключ цвета из палитры
+    done = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)

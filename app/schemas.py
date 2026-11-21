@@ -87,3 +87,24 @@ class CompletionIn(BaseModel):
     counterparty_id: int
     event_key: str
     done: bool
+
+
+# ---- заметки ----
+class NoteIn(BaseModel):
+    note_date: date
+    title: str = Field(min_length=1, max_length=255)
+    text: Optional[str] = None
+    color: Optional[str] = Field(default=None, max_length=16)
+    done: bool = False
+
+
+class NoteOut(BaseModel):
+    id: int
+    note_date: date
+    title: str
+    text: Optional[str] = None
+    color: Optional[str] = None
+    done: bool
+
+    class Config:
+        from_attributes = True
