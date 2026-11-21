@@ -15,7 +15,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
     background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:960px;margin:0 auto;padding:18px 16px 80px}
+  .wrap{max-width:1340px;margin:0 auto;padding:18px 16px 80px}
   .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .topbar h1{font-size:20px;font-weight:700;letter-spacing:-.02em;flex:1;min-width:160px}
   .topbar h1 .em{font-size:22px;margin-right:6px}
@@ -125,7 +125,7 @@
   .cal-legend{margin-top:10px;font-size:11.5px;color:var(--muted);text-align:center}
   .cal-layout{display:flex;gap:14px;align-items:flex-start}
   .cal-main{flex:1;min-width:0}
-  .cal-side{width:280px;flex:0 0 280px;background:var(--card);border:1px solid var(--line);
+  .cal-side{width:250px;flex:0 0 250px;background:var(--card);border:1px solid var(--line);
     border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);position:sticky;top:12px;
     max-height:calc(100vh - 24px);overflow:auto}
   .cal-side-h{font-size:13.5px;font-weight:700;margin-bottom:10px;display:flex;flex-direction:column;gap:2px}
@@ -138,7 +138,7 @@
   .side-date .cd{color:var(--warn)}
   .side-title{font-size:12.5px;font-weight:600;line-height:1.3;margin-top:2px}
   .side-empty{font-size:12px;color:var(--muted);text-align:center;padding:18px}
-  .cal-left{width:240px;flex:0 0 240px;background:var(--card);border:1px solid var(--line);
+  .cal-left{width:210px;flex:0 0 210px;background:var(--card);border:1px solid var(--line);
     border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);position:sticky;top:12px;
     max-height:calc(100vh - 24px);overflow:auto}
   .quick-item{display:flex;align-items:flex-start;gap:7px;padding:7px 2px;border-bottom:1px solid var(--line);cursor:pointer}
@@ -372,12 +372,15 @@
     <h3 id="noteModalTitle">Новая заметка</h3>
     <label>Заголовок *</label>
     <input id="note-title" placeholder="Напр. Сдать НДС">
+    <div id="row-date">
     <label>Дата</label>
     <input id="note-date" type="date">
+    </div>
     <label>Заметка</label>
     <textarea id="note-text" rows="3" placeholder="Добавьте заметку…" style="resize:vertical"></textarea>
     <label>Цвет</label>
     <div class="palette" id="note-palette"></div>
+    <div id="row-repeat">
     <label>🔁 Повтор</label>
     <select id="note-repeat">
       <option value="none">Не повторять</option>
@@ -390,6 +393,8 @@
       <label>Повторять до (необязательно)</label>
       <input id="note-until" type="date">
     </div>
+    </div>
+    <div id="row-remind">
     <label>🔔 Напоминание</label>
     <input id="note-remind" type="datetime-local">
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:7px">
@@ -398,6 +403,7 @@
       <label class="toggle"><input type="checkbox" id="rc-push"> Браузер</label>
     </div>
     <div class="hint" id="remindHint" style="margin-top:5px">Укажите дату и время — напоминание придёт по выбранным каналам.</div>
+    </div>
     <label class="toggle" style="margin-top:12px"><input type="checkbox" id="note-done"> <span id="doneLabel">выполнено</span></label>
     <div class="acts">
       <button class="btn ghost" id="noteDelete" style="color:var(--danger);display:none">Удалить</button>
@@ -996,6 +1002,7 @@ var HOLIDAY_NAMES={
   "2026-06-12":"День России","2026-11-04":"День народного единства"};
 function formatRu(iso){var p=iso.split("-");return p[2]+"."+p[1]+"."+p[0];}
 function occursOn(note,iso){
+  if(note.is_quick)return false;
   if(!note.repeat||note.repeat==="none")return note.note_date===iso;
   if(iso<note.note_date)return false;
   if(note.repeat_until&&iso>note.repeat_until)return false;
@@ -1092,17 +1099,16 @@ $("sideList").addEventListener("click",function(e){
 /* быстрые заметки (левая панель) */
 function renderQuick(){
   var el=$("quickList");el.innerHTML="";
-  var items=allNotes.filter(function(n){return !n.repeat||n.repeat==="none";});
-  items.sort(function(a,b){if(a.done!==b.done)return a.done?1:-1;return a.note_date<b.note_date?-1:1;});
-  if(!items.length){el.innerHTML='<div class="side-empty">Пока нет заметок</div>';return;}
-  items.slice(0,40).forEach(function(n){
-    var d=parseDate(n.note_date),bg=n.color&&COLOR_HEX[n.color]?COLOR_HEX[n.color]:"#cbd5e1";
+  var items=allNotes.filter(function(n){return n.is_quick;});
+  items.sort(function(a,b){if(a.done!==b.done)return a.done?1:-1;return b.id-a.id;});
+  if(!items.length){el.innerHTML='<div class="side-empty">Нет быстрых заметок</div>';return;}
+  items.slice(0,60).forEach(function(n){
+    var bg=n.color&&COLOR_HEX[n.color]?COLOR_HEX[n.color]:"#cbd5e1";
     var div=document.createElement("div");div.className="quick-item"+(n.done?" done":"");
     div.setAttribute("data-qid",n.id);
     div.innerHTML='<input type="checkbox" '+(n.done?"checked":"")+' data-qcheck="'+n.id+'">'+
       '<span class="quick-dot" style="background:'+bg+'"></span>'+
-      '<div style="flex:1;min-width:0"><div class="qt">'+escapeHtml(n.title)+'</div>'+
-      '<div class="qd">'+d.getDate()+" "+MONTHS[d.getMonth()]+'</div></div>';
+      '<div style="flex:1;min-width:0"><div class="qt">'+escapeHtml(n.title)+'</div></div>';
     el.appendChild(div);
   });
 }
@@ -1111,8 +1117,7 @@ $("quickList").addEventListener("change",async function(e){
   var n=allNotes.find(function(x){return x.id===parseInt(cb.getAttribute("data-qcheck"),10);});
   if(!n)return;
   try{await api("PUT","/api/notes/"+n.id,{note_date:n.note_date,title:n.title,text:n.text||null,
-    color:n.color,done:cb.checked,remind_at:n.remind_at||null,remind_channels:n.remind_channels||null,
-    repeat:n.repeat||"none",repeat_until:n.repeat_until||null});await loadCalendar();}
+    color:n.color,done:cb.checked,is_quick:true,repeat:"none"});await loadCalendar();}
   catch(err){alert(err.message);await loadCalendar();}
 });
 $("quickList").addEventListener("click",function(e){
@@ -1123,7 +1128,7 @@ $("quickList").addEventListener("click",function(e){
 });
 async function quickAdd(){
   var t=$("quick-note").value.trim();if(!t)return;
-  try{await api("POST","/api/notes",{note_date:isoOf(today()),title:t,repeat:"none"});
+  try{await api("POST","/api/notes",{note_date:isoOf(today()),title:t,repeat:"none",is_quick:true});
     $("quick-note").value="";await loadCalendar();}catch(e){alert(e.message);}
 }
 $("quick-add").addEventListener("click",quickAdd);
@@ -1207,7 +1212,11 @@ function openNote(iso,note,occDate){
   editingNote=note||null;
   editingOccDate=occDate||iso;
   var rec=note&&note.repeat&&note.repeat!=="none";
-  $("noteModalTitle").textContent=note?(rec?"Повторяющаяся заметка":"Заметка"):"Новая заметка";
+  var quick=note&&note.is_quick;
+  $("row-date").style.display=quick?"none":"";
+  $("row-repeat").style.display=quick?"none":"";
+  $("row-remind").style.display=quick?"none":"";
+  $("noteModalTitle").textContent=quick?"Быстрая заметка":(note?(rec?"Повторяющаяся заметка":"Заметка"):"Новая заметка");
   $("note-title").value=note?note.title:"";
   $("note-date").value=note?note.note_date:iso;
   $("note-text").value=note&&note.text?note.text:"";
@@ -1235,10 +1244,11 @@ $("noteSave").addEventListener("click",async function(){
   if($("rc-tg").checked)chans.push("tg");
   if($("rc-email").checked)chans.push("email");
   if($("rc-push").checked)chans.push("push");
-  var repeat=$("note-repeat").value,rec=repeat!=="none";
+  var isQuick=editingNote&&editingNote.is_quick;
+  var repeat=isQuick?"none":$("note-repeat").value,rec=repeat!=="none";
   var payload={note_date:$("note-date").value,title:title,text:$("note-text").value.trim()||null,
-    color:selectedColor,done:rec?false:$("note-done").checked,
-    remind_at:remind,remind_channels:(remind&&chans.length)?chans.join(","):null,
+    color:selectedColor,done:rec?false:$("note-done").checked,is_quick:isQuick||false,
+    remind_at:isQuick?null:remind,remind_channels:(!isQuick&&remind&&chans.length)?chans.join(","):null,
     repeat:repeat,repeat_until:(rec&&$("note-until").value)?$("note-until").value:null};
   try{
     var id;

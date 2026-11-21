@@ -53,6 +53,7 @@ def _ensure_schema():
         ("notes", "remind_sent", bool_false),
         ("notes", "repeat", "VARCHAR(12) NOT NULL DEFAULT 'none'"),
         ("notes", "repeat_until", "DATE"),
+        ("notes", "is_quick", bool_false),
     ]
     with engine.begin() as conn:
         if "role" not in cols_by_table.get("users", set()):

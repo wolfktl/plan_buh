@@ -100,6 +100,7 @@ class Note(Base):
     text = Column(Text, nullable=True)
     color = Column(String(16), nullable=True)   # ключ цвета из палитры
     done = Column(Boolean, default=False, nullable=False)
+    is_quick = Column(Boolean, default=False, nullable=False)  # быстрая заметка (вне календаря)
     # напоминание
     remind_at = Column(DateTime, nullable=True)
     remind_channels = Column(String(64), nullable=True)  # "tg,email,push"

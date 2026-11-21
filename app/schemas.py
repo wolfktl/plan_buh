@@ -96,6 +96,7 @@ class NoteIn(BaseModel):
     text: Optional[str] = None
     color: Optional[str] = Field(default=None, max_length=16)
     done: bool = False
+    is_quick: bool = False
     remind_at: Optional[datetime] = None
     remind_channels: Optional[str] = Field(default=None, max_length=64)
     repeat: Literal["none", "daily", "weekly", "monthly", "yearly"] = "none"
@@ -109,6 +110,7 @@ class NoteOut(BaseModel):
     text: Optional[str] = None
     color: Optional[str] = None
     done: bool
+    is_quick: bool = False
     remind_at: Optional[datetime] = None
     remind_channels: Optional[str] = None
     repeat: str = "none"
