@@ -218,7 +218,7 @@
 
   <div class="disclaimer">
     <span>⚠️</span>
-    <div>Сроки учитывают переносы с выходных (п.&nbsp;7 ст.&nbsp;6.1 НК&nbsp;РФ) по производственному календарю&nbsp;2026. Состав отчётности зависит от режима и наличия сотрудников. Это вспомогательный инструмент — сверяйтесь с ФНС.</div>
+    <div>Сроки учитывают переносы с выходных (п.&nbsp;7 ст.&nbsp;6.1 НК&nbsp;РФ) по производственному календарю соответствующего года. Состав отчётности зависит от режима и наличия сотрудников. Это вспомогательный инструмент — сверяйтесь с ФНС.</div>
   </div>
 
   <div id="main" style="display:none">
@@ -305,7 +305,7 @@
   <footer>
     Единые сроки ЕНС: отчётность — до 25-го, уплата (ЕНП) — до 28-го.<br>
     НДФЛ: уведомление за 1–22 — до 25-го, за 23-е–конец месяца — до 3-го следующего месяца.<br>
-    Данные на ноябрь 2026. Сверяйтесь с сайтом ФНС.<br>
+    Даты — с переносом на рабочий день по производственному календарю соответствующего года. Сверяйтесь с сайтом ФНС.<br>
     <span id="appVersion" style="opacity:.7"></span>
   </footer>
 </div>
@@ -994,13 +994,16 @@ $("twofaDisable").addEventListener("click",async function(){
 
 /* ================= КАЛЕНДАРЬ-СЕТКА + ЗАМЕТКИ ================= */
 var viewMode=localStorage.getItem("pb_viewmode")||"calendar";
-var calYear,calMonth,calEvents=null,eventsByDate={},allNotes=[],editingNote=null,editingOccDate=null;
+var calYear,calMonth,loadedYears={},eventsByDate={},allTaxEvents=[],allNotes=[],editingNote=null,editingOccDate=null;
 var calShowTax=true,calShowHol=true,selectedColor=null;
-var HOLIDAY_NAMES={
-  "2026-01-01":"Новый год","2026-01-07":"Рождество Христово",
-  "2026-02-23":"День защитника Отечества","2026-03-08":"Межд. женский день",
-  "2026-05-01":"Праздник Весны и Труда","2026-05-09":"День Победы",
-  "2026-06-12":"День России","2026-11-04":"День народного единства"};
+// Праздники по дню-месяцу (одинаковы каждый год)
+var HOLIDAY_MD={"01-01":"Новый год","01-07":"Рождество Христово",
+  "02-23":"День защитника Отечества","03-08":"Межд. женский день",
+  "05-01":"Праздник Весны и Труда","05-09":"День Победы",
+  "06-12":"День России","11-04":"День народного единства"};
+function holidayName(iso){return HOLIDAY_MD[iso.slice(5)];}
+var FEDERAL_MD=new Set(["01-01","01-02","01-03","01-04","01-05","01-06","01-07","01-08",
+  "02-23","03-08","05-01","05-09","06-12","11-04"]);
 function formatRu(iso){var p=iso.split("-");return p[2]+"."+p[1]+"."+p[0];}
 function occursOn(note,iso){
   if(note.is_quick)return false;
@@ -1029,9 +1032,6 @@ var COLORS=[
   {k:"yellow",hex:"#eab308"}, {k:"green",hex:"#2f9e55"}, {k:"teal",hex:"#179e90"},
   {k:"blue",hex:"#3b82f6"}, {k:"purple",hex:"#9b59c7"}, {k:"gray",hex:"#64748b"}];
 var COLOR_HEX={};COLORS.forEach(function(c){if(c.k)COLOR_HEX[c.k]=c.hex;});
-var CAL_HOLIDAYS=new Set(["2026-01-01","2026-01-02","2026-01-05","2026-01-06","2026-01-07",
-  "2026-01-08","2026-01-09","2026-02-23","2026-03-09","2026-05-01","2026-05-11",
-  "2026-06-12","2026-11-04","2026-12-31"]);
 var MON_FULL=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август",
   "Сентябрь","Октябрь","Ноябрь","Декабрь"];
 
@@ -1057,24 +1057,33 @@ $("viewMode").addEventListener("click",function(e){
   if(viewMode==="calendar")loadCalendar();
 });
 
+async function ensureYear(y){
+  if(loadedYears[y])return;
+  loadedYears[y]=true;
+  try{
+    var ev=(await api("GET","/api/events?year="+y)).events;
+    ev.forEach(function(e){if(e.custom)return;
+      (eventsByDate[e.date]=eventsByDate[e.date]||[]).push(e);allTaxEvents.push(e);});
+  }catch(e){loadedYears[y]=false;}
+}
+async function ensureAround(){
+  await ensureYear(calYear);await ensureYear(calYear-1);await ensureYear(calYear+1);
+  // для боковой панели (окно от сегодня) — год текущей даты и следующий
+  var ny=new Date().getFullYear();await ensureYear(ny);await ensureYear(ny+1);
+}
 async function loadCalendar(){
   if(calYear===undefined||calYear===null){var n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();}
-  if(!calEvents){
-    try{calEvents=(await api("GET","/api/events")).events;}catch(e){calEvents=[];}
-    eventsByDate={};
-    calEvents.forEach(function(ev){if(ev.custom)return;(eventsByDate[ev.date]=eventsByDate[ev.date]||[]).push(ev);});
-  }
+  await ensureAround();
   try{allNotes=await api("GET","/api/notes");}catch(e){allNotes=[];}
-  renderCalendar();
-  renderSide();
-  renderQuick();
+  renderCalendar();renderSide();renderQuick();
 }
+async function gotoMonth(){await ensureAround();renderCalendar();renderSide();}
 
 /* боковой столбец: налоговые сроки на месяц + 2 недели вперёд (~6 недель) */
 function renderSide(){
   var t=today();var end=new Date(t);end.setDate(end.getDate()+45);
   $("sideRange").textContent="с "+t.getDate()+" "+MONTHS[t.getMonth()]+" по "+end.getDate()+" "+MONTHS[end.getMonth()];
-  var items=(calEvents||[]).filter(function(e){if(e.custom)return false;var d=parseDate(e.date);return d>=t&&d<=end;});
+  var items=allTaxEvents.filter(function(e){var d=parseDate(e.date);return d>=t&&d<=end;});
   items.sort(function(a,b){return parseDate(a.date)-parseDate(b.date);});
   var el=$("sideList");el.innerHTML="";
   if(!items.length){el.innerHTML='<div class="side-empty">На ближайшие 6 недель сроков нет</div>';return;}
@@ -1093,7 +1102,7 @@ function renderSide(){
 }
 $("sideList").addEventListener("click",function(e){
   var it=e.target.closest("[data-ev]");if(!it)return;
-  var ev=(calEvents||[]).find(function(x){return x.key===it.getAttribute("data-ev");});
+  var ev=allTaxEvents.find(function(x){return x.key===it.getAttribute("data-ev");});
   if(ev)openEvent(ev);
 });
 
@@ -1146,12 +1155,12 @@ function renderCalendar(){
     var d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
     var iso=isoOf(d);
     var out=d.getMonth()!==calMonth;
-    var we=d.getDay()===0||d.getDay()===6||CAL_HOLIDAYS.has(iso);
+    var we=d.getDay()===0||d.getDay()===6||FEDERAL_MD.has(iso.slice(5));
     var cell=document.createElement("div");
     cell.className="cal-cell"+(out?" out":"")+(we?" we":"")+(iso===todayIso?" today":"");
     cell.setAttribute("data-date",iso);
     var html='<div class="cal-num">'+d.getDate()+'</div>';
-    if(calShowHol&&HOLIDAY_NAMES[iso])html+='<div class="cal-chip hol" title="'+escapeHtml(HOLIDAY_NAMES[iso])+'">'+escapeHtml(HOLIDAY_NAMES[iso])+'</div>';
+    if(calShowHol&&holidayName(iso))html+='<div class="cal-chip hol" title="'+escapeHtml(holidayName(iso))+'">'+escapeHtml(holidayName(iso))+'</div>';
     var items=[];
     if(calShowTax&&eventsByDate[iso])eventsByDate[iso].forEach(function(ev){items.push({tax:true,ev:ev});});
     notesOn(iso).forEach(function(n){items.push({tax:false,note:n});});
@@ -1172,9 +1181,9 @@ function renderCalendar(){
   }
 }
 
-$("calPrev").addEventListener("click",function(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();});
-$("calNext").addEventListener("click",function(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();});
-$("calToday").addEventListener("click",function(){var n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();renderCalendar();});
+$("calPrev").addEventListener("click",async function(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}await gotoMonth();});
+$("calNext").addEventListener("click",async function(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}await gotoMonth();});
+$("calToday").addEventListener("click",async function(){var n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();await gotoMonth();});
 $("calShowTax").addEventListener("change",function(e){calShowTax=e.target.checked;renderCalendar();});
 $("calShowHol").addEventListener("change",function(e){calShowHol=e.target.checked;renderCalendar();});
 
