@@ -138,9 +138,22 @@
   .side-date .cd{color:var(--warn)}
   .side-title{font-size:12.5px;font-weight:600;line-height:1.3;margin-top:2px}
   .side-empty{font-size:12px;color:var(--muted);text-align:center;padding:18px}
-  @media(max-width:860px){
+  .cal-left{width:240px;flex:0 0 240px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);position:sticky;top:12px;
+    max-height:calc(100vh - 24px);overflow:auto}
+  .quick-item{display:flex;align-items:flex-start;gap:7px;padding:7px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+  .quick-item:last-child{border-bottom:0}
+  .quick-item input{margin-top:2px;accent-color:var(--ok);flex:0 0 auto}
+  .quick-item .qt{flex:1;font-size:12.5px;line-height:1.3;min-width:0;word-break:break-word}
+  .quick-item.done .qt{text-decoration:line-through;color:var(--muted)}
+  .quick-item .qd{font-size:10.5px;color:var(--muted);margin-top:1px}
+  .quick-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;margin-top:5px}
+  .cal-chip.hol{background:#fdecec;color:#b02121;font-weight:600}
+  .cal-chip.rep::before{content:"🔁";font-size:8px;margin-right:2px}
+  @media(max-width:1100px){
     .cal-layout{flex-direction:column}
-    .cal-side{width:100%;flex-basis:auto;position:static;max-height:none}
+    .cal-left,.cal-side{width:100%;flex-basis:auto;position:static;max-height:none}
+    .cal-main{order:-1}
   }
   @media(max-width:620px){
     .cal-cell{min-height:76px}
@@ -263,6 +276,14 @@
       <button class="icon-btn" id="calToday">Сегодня</button>
     </div>
     <div class="cal-layout">
+      <aside class="cal-left">
+        <div class="cal-side-h">Быстрые заметки</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <input id="quick-note" placeholder="Заметка на сегодня…" style="flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;background:var(--bg)">
+          <button class="btn primary" id="quick-add" style="flex:0 0 auto;padding:8px 12px">+</button>
+        </div>
+        <div id="quickList" class="side-list"></div>
+      </aside>
       <div class="cal-main">
         <div class="cal-dow">
           <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div>
@@ -357,6 +378,18 @@
     <textarea id="note-text" rows="3" placeholder="Добавьте заметку…" style="resize:vertical"></textarea>
     <label>Цвет</label>
     <div class="palette" id="note-palette"></div>
+    <label>🔁 Повтор</label>
+    <select id="note-repeat">
+      <option value="none">Не повторять</option>
+      <option value="daily">Каждый день</option>
+      <option value="weekly">Каждую неделю</option>
+      <option value="monthly">Каждый месяц (на это число)</option>
+      <option value="yearly">Каждый год</option>
+    </select>
+    <div id="note-until-box" style="display:none">
+      <label>Повторять до (необязательно)</label>
+      <input id="note-until" type="date">
+    </div>
     <label>🔔 Напоминание</label>
     <input id="note-remind" type="datetime-local">
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:7px">
@@ -365,7 +398,7 @@
       <label class="toggle"><input type="checkbox" id="rc-push"> Браузер</label>
     </div>
     <div class="hint" id="remindHint" style="margin-top:5px">Укажите дату и время — напоминание придёт по выбранным каналам.</div>
-    <label class="toggle" style="margin-top:12px"><input type="checkbox" id="note-done"> выполнено</label>
+    <label class="toggle" style="margin-top:12px"><input type="checkbox" id="note-done"> <span id="doneLabel">выполнено</span></label>
     <div class="acts">
       <button class="btn ghost" id="noteDelete" style="color:var(--danger);display:none">Удалить</button>
       <button class="btn ghost" id="noteCancel">Отмена</button>
@@ -954,8 +987,35 @@ $("twofaDisable").addEventListener("click",async function(){
 
 /* ================= КАЛЕНДАРЬ-СЕТКА + ЗАМЕТКИ ================= */
 var viewMode=localStorage.getItem("pb_viewmode")||"calendar";
-var calYear,calMonth,calEvents=null,eventsByDate={},notesByDate={},editingNote=null;
+var calYear,calMonth,calEvents=null,eventsByDate={},allNotes=[],editingNote=null,editingOccDate=null;
 var calShowTax=true,selectedColor=null;
+var HOLIDAY_NAMES={
+  "2026-01-01":"Новый год","2026-01-07":"Рождество Христово",
+  "2026-02-23":"День защитника Отечества","2026-03-08":"Межд. женский день",
+  "2026-05-01":"Праздник Весны и Труда","2026-05-09":"День Победы",
+  "2026-06-12":"День России","2026-11-04":"День народного единства"};
+function formatRu(iso){var p=iso.split("-");return p[2]+"."+p[1]+"."+p[0];}
+function occursOn(note,iso){
+  if(!note.repeat||note.repeat==="none")return note.note_date===iso;
+  if(iso<note.note_date)return false;
+  if(note.repeat_until&&iso>note.repeat_until)return false;
+  var a=parseDate(note.note_date),d=parseDate(iso);
+  if(note.repeat==="daily")return true;
+  if(note.repeat==="weekly")return Math.round((d-a)/86400000)%7===0;
+  if(note.repeat==="monthly"){
+    var dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+    return d.getDate()===Math.min(a.getDate(),dim);
+  }
+  if(note.repeat==="yearly")return d.getDate()===a.getDate()&&d.getMonth()===a.getMonth();
+  return false;
+}
+function noteDoneOn(note,iso){
+  if(note.repeat&&note.repeat!=="none")return note.done_dates&&note.done_dates.indexOf(iso)>=0;
+  return note.done;
+}
+function notesOn(iso){
+  var r=[];allNotes.forEach(function(n){if(occursOn(n,iso))r.push(n);});return r;
+}
 var COLORS=[
   {k:null, hex:null}, {k:"red",hex:"#e2556e"}, {k:"orange",hex:"#ef8e58"},
   {k:"yellow",hex:"#eab308"}, {k:"green",hex:"#2f9e55"}, {k:"teal",hex:"#179e90"},
@@ -996,11 +1056,10 @@ async function loadCalendar(){
     eventsByDate={};
     calEvents.forEach(function(ev){if(ev.custom)return;(eventsByDate[ev.date]=eventsByDate[ev.date]||[]).push(ev);});
   }
-  try{var notes=await api("GET","/api/notes");notesByDate={};
-    notes.forEach(function(n){(notesByDate[n.note_date]=notesByDate[n.note_date]||[]).push(n);});
-  }catch(e){notesByDate={};}
+  try{allNotes=await api("GET","/api/notes");}catch(e){allNotes=[];}
   renderCalendar();
   renderSide();
+  renderQuick();
 }
 
 /* боковой столбец: налоговые сроки на месяц + 2 недели вперёд (~6 недель) */
@@ -1030,6 +1089,46 @@ $("sideList").addEventListener("click",function(e){
   if(ev)openEvent(ev);
 });
 
+/* быстрые заметки (левая панель) */
+function renderQuick(){
+  var el=$("quickList");el.innerHTML="";
+  var items=allNotes.filter(function(n){return !n.repeat||n.repeat==="none";});
+  items.sort(function(a,b){if(a.done!==b.done)return a.done?1:-1;return a.note_date<b.note_date?-1:1;});
+  if(!items.length){el.innerHTML='<div class="side-empty">Пока нет заметок</div>';return;}
+  items.slice(0,40).forEach(function(n){
+    var d=parseDate(n.note_date),bg=n.color&&COLOR_HEX[n.color]?COLOR_HEX[n.color]:"#cbd5e1";
+    var div=document.createElement("div");div.className="quick-item"+(n.done?" done":"");
+    div.setAttribute("data-qid",n.id);
+    div.innerHTML='<input type="checkbox" '+(n.done?"checked":"")+' data-qcheck="'+n.id+'">'+
+      '<span class="quick-dot" style="background:'+bg+'"></span>'+
+      '<div style="flex:1;min-width:0"><div class="qt">'+escapeHtml(n.title)+'</div>'+
+      '<div class="qd">'+d.getDate()+" "+MONTHS[d.getMonth()]+'</div></div>';
+    el.appendChild(div);
+  });
+}
+$("quickList").addEventListener("change",async function(e){
+  var cb=e.target.closest("[data-qcheck]");if(!cb)return;
+  var n=allNotes.find(function(x){return x.id===parseInt(cb.getAttribute("data-qcheck"),10);});
+  if(!n)return;
+  try{await api("PUT","/api/notes/"+n.id,{note_date:n.note_date,title:n.title,text:n.text||null,
+    color:n.color,done:cb.checked,remind_at:n.remind_at||null,remind_channels:n.remind_channels||null,
+    repeat:n.repeat||"none",repeat_until:n.repeat_until||null});await loadCalendar();}
+  catch(err){alert(err.message);await loadCalendar();}
+});
+$("quickList").addEventListener("click",function(e){
+  if(e.target.closest("[data-qcheck]"))return;
+  var it=e.target.closest("[data-qid]");if(!it)return;
+  var n=allNotes.find(function(x){return x.id===parseInt(it.getAttribute("data-qid"),10);});
+  if(n)openNote(n.note_date,n,n.note_date);
+});
+async function quickAdd(){
+  var t=$("quick-note").value.trim();if(!t)return;
+  try{await api("POST","/api/notes",{note_date:isoOf(today()),title:t,repeat:"none"});
+    $("quick-note").value="";await loadCalendar();}catch(e){alert(e.message);}
+}
+$("quick-add").addEventListener("click",quickAdd);
+$("quick-note").addEventListener("keydown",function(e){if(e.key==="Enter")quickAdd();});
+
 function renderCalendar(){
   $("calTitle").textContent=MON_FULL[calMonth]+" "+calYear;
   var grid=$("calGrid");grid.innerHTML="";
@@ -1046,17 +1145,19 @@ function renderCalendar(){
     cell.className="cal-cell"+(out?" out":"")+(we?" we":"")+(iso===todayIso?" today":"");
     cell.setAttribute("data-date",iso);
     var html='<div class="cal-num">'+d.getDate()+'</div>';
+    if(HOLIDAY_NAMES[iso])html+='<div class="cal-chip hol" title="'+escapeHtml(HOLIDAY_NAMES[iso])+'">'+escapeHtml(HOLIDAY_NAMES[iso])+'</div>';
     var items=[];
     if(calShowTax&&eventsByDate[iso])eventsByDate[iso].forEach(function(ev){items.push({tax:true,ev:ev});});
-    (notesByDate[iso]||[]).forEach(function(n){items.push({tax:false,note:n});});
+    notesOn(iso).forEach(function(n){items.push({tax:false,note:n});});
     var shown=items.slice(0,4);
     shown.forEach(function(it){
       if(it.tax){
         var c=CATS[it.ev.cat]?CATS[it.ev.cat].c:"#94a3b8";
         html+='<div class="cal-chip tax" style="--cc:'+c+'" data-ev="'+it.ev.key+'" title="'+escapeHtml(it.ev.title)+'">'+escapeHtml(it.ev.title)+'</div>';
       }else{
-        var bg=it.note.color&&COLOR_HEX[it.note.color]?COLOR_HEX[it.note.color]:"#94a3b8";
-        html+='<div class="cal-chip note'+(it.note.done?" done":"")+'" style="background:'+bg+'" data-note="'+it.note.id+'">'+escapeHtml(it.note.title)+'</div>';
+        var n=it.note,bg=n.color&&COLOR_HEX[n.color]?COLOR_HEX[n.color]:"#94a3b8";
+        var rec=n.repeat&&n.repeat!=="none";
+        html+='<div class="cal-chip note'+(rec?" rep":"")+(noteDoneOn(n,iso)?" done":"")+'" style="background:'+bg+'" data-note="'+n.id+'">'+escapeHtml(n.title)+'</div>';
       }
     });
     if(items.length>shown.length)html+='<div class="cal-more">+ ещё '+(items.length-shown.length)+'</div>';
@@ -1075,14 +1176,14 @@ $("calGrid").addEventListener("click",function(e){
   if(noteChip){
     var id=parseInt(noteChip.getAttribute("data-note"),10);
     var iso=cell.getAttribute("data-date");
-    var note=(notesByDate[iso]||[]).find(function(n){return n.id===id;});
-    openNote(iso,note);return;
+    var note=allNotes.find(function(n){return n.id===id;});
+    openNote(iso,note,iso);return;
   }
   if(evChip){
     var ev=(eventsByDate[cell.getAttribute("data-date")]||[]).find(function(x){return x.key===evChip.getAttribute("data-ev");});
     if(ev)openEvent(ev);return;
   }
-  if(cell)openNote(cell.getAttribute("data-date"),null);
+  if(cell){var ciso=cell.getAttribute("data-date");openNote(ciso,null,ciso);}
 });
 
 /* ----- палитра ----- */
@@ -1099,15 +1200,24 @@ function renderPalette(){
 }
 
 /* ----- модалка заметки ----- */
-function openNote(iso,note){
+function toggleUntil(){$("note-until-box").style.display=$("note-repeat").value!=="none"?"block":"none";}
+$("note-repeat").addEventListener("change",toggleUntil);
+
+function openNote(iso,note,occDate){
   editingNote=note||null;
-  $("noteModalTitle").textContent=note?"Заметка":"Новая заметка";
+  editingOccDate=occDate||iso;
+  var rec=note&&note.repeat&&note.repeat!=="none";
+  $("noteModalTitle").textContent=note?(rec?"Повторяющаяся заметка":"Заметка"):"Новая заметка";
   $("note-title").value=note?note.title:"";
-  $("note-date").value=iso;
+  $("note-date").value=note?note.note_date:iso;
   $("note-text").value=note&&note.text?note.text:"";
-  $("note-done").checked=note?note.done:false;
+  $("note-done").checked=note?noteDoneOn(note,editingOccDate):false;
+  $("doneLabel").textContent=rec?("выполнено на "+formatRu(editingOccDate)):"выполнено";
   selectedColor=note?(note.color||null):null;
   renderPalette();
+  $("note-repeat").value=note&&note.repeat?note.repeat:"none";
+  toggleUntil();
+  $("note-until").value=note&&note.repeat_until?note.repeat_until:"";
   var ch=note&&note.remind_channels?note.remind_channels.split(","):[];
   $("rc-tg").checked=ch.indexOf("tg")>=0;
   $("rc-email").checked=ch.indexOf("email")>=0;
@@ -1125,12 +1235,16 @@ $("noteSave").addEventListener("click",async function(){
   if($("rc-tg").checked)chans.push("tg");
   if($("rc-email").checked)chans.push("email");
   if($("rc-push").checked)chans.push("push");
+  var repeat=$("note-repeat").value,rec=repeat!=="none";
   var payload={note_date:$("note-date").value,title:title,text:$("note-text").value.trim()||null,
-    color:selectedColor,done:$("note-done").checked,
-    remind_at:remind,remind_channels:(remind&&chans.length)?chans.join(","):null};
+    color:selectedColor,done:rec?false:$("note-done").checked,
+    remind_at:remind,remind_channels:(remind&&chans.length)?chans.join(","):null,
+    repeat:repeat,repeat_until:(rec&&$("note-until").value)?$("note-until").value:null};
   try{
-    if(editingNote)await api("PUT","/api/notes/"+editingNote.id,payload);
-    else await api("POST","/api/notes",payload);
+    var id;
+    if(editingNote){await api("PUT","/api/notes/"+editingNote.id,payload);id=editingNote.id;}
+    else{var created=await api("POST","/api/notes",payload);id=created.id;}
+    if(rec)await api("POST","/api/notes/"+id+"/occurrence",{occ_date:editingOccDate,done:$("note-done").checked});
     $("ovNote").classList.remove("show");await loadCalendar();
   }catch(e){alert(e.message);}
 });

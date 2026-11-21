@@ -51,6 +51,8 @@ def _ensure_schema():
         ("notes", "remind_at", dt),
         ("notes", "remind_channels", "VARCHAR(64)"),
         ("notes", "remind_sent", bool_false),
+        ("notes", "repeat", "VARCHAR(12) NOT NULL DEFAULT 'none'"),
+        ("notes", "repeat_until", "DATE"),
     ]
     with engine.begin() as conn:
         if "role" not in cols_by_table.get("users", set()):

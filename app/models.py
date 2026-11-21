@@ -104,7 +104,21 @@ class Note(Base):
     remind_at = Column(DateTime, nullable=True)
     remind_channels = Column(String(64), nullable=True)  # "tg,email,push"
     remind_sent = Column(Boolean, default=False, nullable=False)
+    # повтор: none | daily | weekly | monthly | yearly
+    repeat = Column(String(12), default="none", nullable=False)
+    repeat_until = Column(Date, nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
+
+
+class NoteDone(Base):
+    """Отметка выполнения конкретного вхождения повторяющейся заметки."""
+    __tablename__ = "note_done"
+    __table_args__ = (UniqueConstraint("note_id", "occ_date", name="uq_note_done"),)
+
+    id = Column(Integer, primary_key=True)
+    note_id = Column(Integer, ForeignKey("notes.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    occ_date = Column(Date, nullable=False)
 
 
 class NotificationSettings(Base):

@@ -98,6 +98,8 @@ class NoteIn(BaseModel):
     done: bool = False
     remind_at: Optional[datetime] = None
     remind_channels: Optional[str] = Field(default=None, max_length=64)
+    repeat: Literal["none", "daily", "weekly", "monthly", "yearly"] = "none"
+    repeat_until: Optional[date] = None
 
 
 class NoteOut(BaseModel):
@@ -109,9 +111,17 @@ class NoteOut(BaseModel):
     done: bool
     remind_at: Optional[datetime] = None
     remind_channels: Optional[str] = None
+    repeat: str = "none"
+    repeat_until: Optional[date] = None
+    done_dates: list[date] = []
 
     class Config:
         from_attributes = True
+
+
+class OccurrenceIn(BaseModel):
+    occ_date: date
+    done: bool
 
 
 # ---- оповещения: серверные настройки (admin) ----
