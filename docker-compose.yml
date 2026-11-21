@@ -48,6 +48,9 @@ services:
     container_name: plan_buh_worker
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
+    # воркер не слушает HTTP — отключаем унаследованный из образа healthcheck
+    healthcheck:
+      disable: true
     depends_on:
       db:
         condition: service_healthy
