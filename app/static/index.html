@@ -283,7 +283,8 @@
   <footer>
     Единые сроки ЕНС: отчётность — до 25-го, уплата (ЕНП) — до 28-го.<br>
     НДФЛ: уведомление за 1–22 — до 25-го, за 23-е–конец месяца — до 3-го следующего месяца.<br>
-    Данные на ноябрь 2026. Сверяйтесь с сайтом ФНС.
+    Данные на ноябрь 2026. Сверяйтесь с сайтом ФНС.<br>
+    <span id="appVersion" style="opacity:.7"></span>
   </footer>
 </div>
 
@@ -356,6 +357,14 @@
     <textarea id="note-text" rows="3" placeholder="Добавьте заметку…" style="resize:vertical"></textarea>
     <label>Цвет</label>
     <div class="palette" id="note-palette"></div>
+    <label>🔔 Напоминание</label>
+    <input id="note-remind" type="datetime-local">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:7px">
+      <label class="toggle"><input type="checkbox" id="rc-tg"> Telegram</label>
+      <label class="toggle"><input type="checkbox" id="rc-email"> Email</label>
+      <label class="toggle"><input type="checkbox" id="rc-push"> Браузер</label>
+    </div>
+    <div class="hint" id="remindHint" style="margin-top:5px">Укажите дату и время — напоминание придёт по выбранным каналам.</div>
     <label class="toggle" style="margin-top:12px"><input type="checkbox" id="note-done"> выполнено</label>
     <div class="acts">
       <button class="btn ghost" id="noteDelete" style="color:var(--danger);display:none">Удалить</button>
@@ -436,6 +445,53 @@
       </div>
     </div>
 
+    <!-- Мои каналы оповещений -->
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px">Мои каналы оповещений</div>
+      <label>Email для напоминаний</label>
+      <div style="display:flex;gap:8px">
+        <input id="ch-email" type="email" placeholder="you@example.com" style="flex:1">
+        <button class="btn primary" id="ch-email-save" style="flex:0 0 auto;padding:10px 14px">OK</button>
+      </div>
+      <div class="hint" id="ch-email-srv" style="margin-top:4px"></div>
+
+      <label style="margin-top:12px">Telegram</label>
+      <div id="ch-tg-status" class="hint"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn ghost" id="ch-tg-link" style="flex:1">Привязать</button>
+        <button class="btn ghost" id="ch-tg-unlink" style="flex:1;display:none">Отвязать</button>
+      </div>
+      <div id="ch-tg-linkbox" class="hint" style="margin-top:6px;display:none"></div>
+
+      <label style="margin-top:12px">Браузерные уведомления</label>
+      <div id="ch-push-status" class="hint"></div>
+      <button class="btn ghost" id="ch-push-enable" style="margin-top:4px;width:100%">Включить на этом устройстве</button>
+
+      <button class="btn ghost" id="ch-test" style="margin-top:12px;width:100%">Отправить тестовое уведомление</button>
+    </div>
+
+    <!-- Серверные настройки оповещений (админ) -->
+    <div id="srvNotif" style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;display:none">
+      <div style="font-weight:600;font-size:14px;margin-bottom:2px">Оповещения — сервер</div>
+      <div class="hint" style="margin-bottom:6px">Доступно администратору. Секреты не показываются — оставьте пустыми, чтобы не менять.</div>
+      <div class="grid2">
+        <div><label>SMTP хост</label><input id="ns-host" placeholder="smtp.yandex.ru"></div>
+        <div><label>Порт</label><input id="ns-port" type="number" placeholder="465"></div>
+      </div>
+      <div class="grid2">
+        <div><label>SMTP логин</label><input id="ns-user" placeholder="bot@domain.ru"></div>
+        <div><label>SMTP пароль</label><input id="ns-pass" type="password" placeholder="не меняется"></div>
+      </div>
+      <div class="grid2">
+        <div><label>Отправитель (From)</label><input id="ns-from" placeholder="bot@domain.ru"></div>
+        <div><label class="toggle" style="margin-top:26px"><input type="checkbox" id="ns-tls" checked> STARTTLS</label></div>
+      </div>
+      <label>Токен Telegram-бота</label>
+      <input id="ns-tgtoken" placeholder="не меняется">
+      <div class="hint" id="ns-tgtoken-set" style="margin-top:3px"></div>
+      <button class="btn primary" id="ns-save" style="margin-top:12px;width:100%">Сохранить настройки сервера</button>
+    </div>
+
     <div class="acts" style="margin-top:16px">
       <button class="btn ghost" id="setClose">Закрыть</button>
     </div>
@@ -500,6 +556,8 @@ async function boot(){
   // вид по умолчанию: календарь (общий просмотр, работает и без контрагентов)
   applyViewMode();
   if(viewMode==="calendar")loadCalendar();
+  try{var v=await (await fetch("/api/version")).json();
+    $("appVersion").textContent=v.app+" · v"+v.version;}catch(e){}
 }
 
 async function loadCps(){
@@ -776,9 +834,91 @@ async function openSettings(){
     twofaEnabled=!!u.totp_enabled;
     $("setUser").textContent="Пользователь: "+(u.username||"");
     renderTwofa();
+    loadChannels();
+    if(CURRENT_USER&&CURRENT_USER.role==="admin"){$("srvNotif").style.display="block";loadNotifSettings();}
+    else $("srvNotif").style.display="none";
     $("ovSettings").classList.add("show");
   }catch(e){alert("Не удалось загрузить настройки");}
 }
+
+/* ----- мои каналы оповещений ----- */
+function urlB64ToUint8(s){
+  var pad="=".repeat((4-s.length%4)%4);
+  var b=(s+pad).replace(/-/g,"+").replace(/_/g,"/");
+  var raw=atob(b),arr=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+async function loadChannels(){
+  try{
+    var ch=await api("GET","/api/channels/me");
+    $("ch-email").value=ch.email||"";
+    $("ch-email-srv").textContent=ch.smtp_available?"":"SMTP на сервере не настроен — письма не отправляются.";
+    $("ch-tg-status").textContent=ch.telegram_linked?"Привязан ✓":(ch.telegram_available?"Не привязан":"Бот на сервере не настроен.");
+    $("ch-tg-link").style.display=ch.telegram_available&&!ch.telegram_linked?"":"none";
+    $("ch-tg-unlink").style.display=ch.telegram_linked?"":"none";
+    $("ch-push-status").textContent=ch.push_count?("Включено, устройств: "+ch.push_count):"Выключено";
+  }catch(e){}
+}
+$("ch-email-save").addEventListener("click",async function(){
+  try{await api("PUT","/api/channels/email",{email:$("ch-email").value.trim()||null});alert("Email сохранён");loadChannels();}
+  catch(e){alert(e.message);}
+});
+$("ch-tg-link").addEventListener("click",async function(){
+  try{
+    var d=await api("POST","/api/channels/telegram/link");
+    var box=$("ch-tg-linkbox");box.style.display="block";
+    if(d.link)box.innerHTML='Откройте бота и нажмите Start: <a href="'+d.link+'" target="_blank">'+d.link+'</a>';
+    else box.innerHTML='Отправьте боту команду: <b>/start '+d.code+'</b>';
+  }catch(e){alert(e.message);}
+});
+$("ch-tg-unlink").addEventListener("click",async function(){
+  if(!confirm("Отвязать Telegram?"))return;
+  try{await api("DELETE","/api/channels/telegram");loadChannels();}catch(e){alert(e.message);}
+});
+$("ch-push-enable").addEventListener("click",async function(){
+  if(!("serviceWorker" in navigator)||!("PushManager" in window))return alert("Браузер не поддерживает push-уведомления");
+  try{
+    var perm=await Notification.requestPermission();
+    if(perm!=="granted")return alert("Разрешение на уведомления не выдано");
+    var reg=await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+    var pub=(await api("GET","/api/notifications/vapid-public")).public_key;
+    var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(pub)});
+    var j=sub.toJSON();
+    await api("POST","/api/channels/push/subscribe",{endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth});
+    alert("Браузерные уведомления включены");loadChannels();
+  }catch(e){alert("Не удалось включить: "+e.message);}
+});
+$("ch-test").addEventListener("click",async function(){
+  try{
+    var r=await api("POST","/api/channels/test");
+    var msg=r.sent.length?("Отправлено: "+r.sent.map(function(x){return x.split(":")[0];}).join(", ")):"Нет настроенных каналов";
+    var errs=Object.keys(r.errors||{});
+    if(errs.length)msg+="\nОшибки: "+errs.map(function(k){return k+": "+r.errors[k];}).join("; ");
+    alert(msg);
+  }catch(e){alert(e.message);}
+});
+
+/* ----- серверные настройки оповещений (админ) ----- */
+async function loadNotifSettings(){
+  try{
+    var s=await api("GET","/api/notifications/settings");
+    $("ns-host").value=s.smtp_host||"";$("ns-port").value=s.smtp_port||"";
+    $("ns-user").value=s.smtp_user||"";$("ns-from").value=s.smtp_from||"";
+    $("ns-tls").checked=s.smtp_tls!==false;$("ns-pass").value="";$("ns-tgtoken").value="";
+    $("ns-pass").placeholder=s.smtp_password_set?"задан — не меняется":"не задан";
+    $("ns-tgtoken-set").textContent=s.telegram_bot_token_set?"Токен задан. Введите новый, чтобы заменить.":"Токен не задан.";
+  }catch(e){}
+}
+$("ns-save").addEventListener("click",async function(){
+  var payload={smtp_host:$("ns-host").value.trim()||null,smtp_port:parseInt($("ns-port").value||"587",10),
+    smtp_user:$("ns-user").value.trim()||null,smtp_from:$("ns-from").value.trim()||null,
+    smtp_tls:$("ns-tls").checked,smtp_password:$("ns-pass").value||null,
+    telegram_bot_token:$("ns-tgtoken").value.trim()||null};
+  try{await api("PUT","/api/notifications/settings",payload);alert("Настройки сервера сохранены");loadNotifSettings();loadChannels();}
+  catch(e){alert(e.message);}
+});
 function renderTwofa(){
   $("twofaSetup").style.display="none";
   if(twofaEnabled){
@@ -968,6 +1108,11 @@ function openNote(iso,note){
   $("note-done").checked=note?note.done:false;
   selectedColor=note?(note.color||null):null;
   renderPalette();
+  var ch=note&&note.remind_channels?note.remind_channels.split(","):[];
+  $("rc-tg").checked=ch.indexOf("tg")>=0;
+  $("rc-email").checked=ch.indexOf("email")>=0;
+  $("rc-push").checked=ch.indexOf("push")>=0;
+  $("note-remind").value=note&&note.remind_at?note.remind_at.slice(0,16):"";
   $("noteDelete").style.display=note?"":"none";
   $("ovNote").classList.add("show");
   setTimeout(function(){$("note-title").focus();},30);
@@ -975,8 +1120,14 @@ function openNote(iso,note){
 $("noteCancel").addEventListener("click",function(){$("ovNote").classList.remove("show");});
 $("noteSave").addEventListener("click",async function(){
   var title=$("note-title").value.trim();if(!title)return alert("Укажите заголовок");
+  var remind=$("note-remind").value||null;
+  var chans=[];
+  if($("rc-tg").checked)chans.push("tg");
+  if($("rc-email").checked)chans.push("email");
+  if($("rc-push").checked)chans.push("push");
   var payload={note_date:$("note-date").value,title:title,text:$("note-text").value.trim()||null,
-    color:selectedColor,done:$("note-done").checked};
+    color:selectedColor,done:$("note-done").checked,
+    remind_at:remind,remind_channels:(remind&&chans.length)?chans.join(","):null};
   try{
     if(editingNote)await api("PUT","/api/notes/"+editingNote.id,payload);
     else await api("POST","/api/notes",payload);

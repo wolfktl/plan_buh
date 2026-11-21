@@ -96,6 +96,8 @@ class NoteIn(BaseModel):
     text: Optional[str] = None
     color: Optional[str] = Field(default=None, max_length=16)
     done: bool = False
+    remind_at: Optional[datetime] = None
+    remind_channels: Optional[str] = Field(default=None, max_length=64)
 
 
 class NoteOut(BaseModel):
@@ -105,6 +107,54 @@ class NoteOut(BaseModel):
     text: Optional[str] = None
     color: Optional[str] = None
     done: bool
+    remind_at: Optional[datetime] = None
+    remind_channels: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+# ---- оповещения: серверные настройки (admin) ----
+class NotificationSettingsIn(BaseModel):
+    smtp_host: Optional[str] = Field(default=None, max_length=255)
+    smtp_port: int = 587
+    smtp_user: Optional[str] = Field(default=None, max_length=255)
+    smtp_password: Optional[str] = None   # пусто = не менять
+    smtp_from: Optional[str] = Field(default=None, max_length=255)
+    smtp_tls: bool = True
+    telegram_bot_token: Optional[str] = None  # пусто = не менять
+    vapid_subject: Optional[str] = Field(default=None, max_length=255)
+
+
+class NotificationSettingsOut(BaseModel):
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_from: Optional[str] = None
+    smtp_tls: bool = True
+    smtp_password_set: bool = False
+    telegram_bot_token_set: bool = False
+    vapid_subject: Optional[str] = None
+
+
+# ---- оповещения: каналы пользователя ----
+class ChannelsOut(BaseModel):
+    email: Optional[str] = None
+    telegram_linked: bool = False
+    push_count: int = 0
+    telegram_available: bool = False   # задан ли токен бота на сервере
+    smtp_available: bool = False       # настроен ли SMTP на сервере
+
+
+class EmailIn(BaseModel):
+    email: Optional[str] = Field(default=None, max_length=255)
+
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+
+class EndpointIn(BaseModel):
+    endpoint: str

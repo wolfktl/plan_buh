@@ -22,6 +22,10 @@ class User(Base):
     totp_enabled = Column(Boolean, default=False, nullable=False)
     role = Column(String(16), default="user", nullable=False)  # admin | user
     is_active = Column(Boolean, default=True, nullable=False)
+    # каналы оповещений пользователя
+    email = Column(String(255), nullable=True)
+    telegram_chat_id = Column(String(32), nullable=True)
+    telegram_link_code = Column(String(16), nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
 
     counterparties = relationship("Counterparty", back_populates="owner",
@@ -96,4 +100,39 @@ class Note(Base):
     text = Column(Text, nullable=True)
     color = Column(String(16), nullable=True)   # ключ цвета из палитры
     done = Column(Boolean, default=False, nullable=False)
+    # напоминание
+    remind_at = Column(DateTime, nullable=True)
+    remind_channels = Column(String(64), nullable=True)  # "tg,email,push"
+    remind_sent = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+
+
+class NotificationSettings(Base):
+    """Серверные настройки оповещений (один ряд, id=1). Правит администратор."""
+    __tablename__ = "notification_settings"
+
+    id = Column(Integer, primary_key=True)
+    smtp_host = Column(String(255), nullable=True)
+    smtp_port = Column(Integer, default=587, nullable=False)
+    smtp_user = Column(String(255), nullable=True)
+    smtp_password = Column(String(255), nullable=True)
+    smtp_from = Column(String(255), nullable=True)
+    smtp_tls = Column(Boolean, default=True, nullable=False)
+    telegram_bot_token = Column(String(128), nullable=True)
+    # VAPID-ключи для Web Push (генерируются автоматически при первом старте)
+    vapid_public = Column(Text, nullable=True)
+    vapid_private = Column(Text, nullable=True)
+    vapid_subject = Column(String(255), default="mailto:admin@example.com", nullable=False)
+
+
+class PushSubscription(Base):
+    """Подписка браузера на Web Push (на пользователя может быть несколько)."""
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    endpoint = Column(Text, nullable=False, unique=True)
+    p256dh = Column(String(255), nullable=False)
+    auth = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=utcnow, nullable=False)

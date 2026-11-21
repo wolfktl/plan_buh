@@ -7,7 +7,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import init_db
-from .routers import admin, auth, counterparties, notes, planner
+from .routers import (admin, auth, channels, counterparties, notes,
+                      notifications, planner)
 from .security import SESSION_COOKIE, _decode
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -22,11 +23,18 @@ app.include_router(admin.router)
 app.include_router(counterparties.router)
 app.include_router(planner.router)
 app.include_router(notes.router)
+app.include_router(notifications.router)
+app.include_router(channels.router)
 
 
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
+
+
+@app.get("/api/version")
+def version():
+    return {"version": settings.APP_VERSION, "app": settings.APP_TITLE}
 
 
 def _is_authed(request: Request) -> bool:
@@ -47,6 +55,13 @@ def root(request: Request):
 @app.get("/login")
 def login_page():
     return FileResponse(os.path.join(STATIC_DIR, "login.html"))
+
+
+@app.get("/sw.js")
+def service_worker():
+    # Service Worker должен отдаваться с корня, чтобы иметь scope "/"
+    return FileResponse(os.path.join(STATIC_DIR, "sw.js"),
+                        media_type="application/javascript")
 
 
 # Статика (css/js/картинки при необходимости)

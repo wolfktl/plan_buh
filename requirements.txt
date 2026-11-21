@@ -7,3 +7,5 @@ pyotp==2.9.0
 qrcode[pil]==8.0
 python-multipart==0.0.20
 psycopg[binary]==3.2.3
+httpx==0.28.1
+pywebpush==2.5.0

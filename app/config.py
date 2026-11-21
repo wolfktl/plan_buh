@@ -2,6 +2,8 @@
 import os
 import secrets
 
+from .version import __version__
+
 
 def _get_secret() -> str:
     key = os.getenv("SECRET_KEY")
@@ -38,6 +40,7 @@ class Settings:
     TOTP_ISSUER: str = os.getenv("TOTP_ISSUER", "ПланБух")
 
     APP_TITLE: str = os.getenv("APP_TITLE", "Планировщик бухгалтера")
+    APP_VERSION: str = __version__
 
     @property
     def sqlalchemy_url(self) -> str:

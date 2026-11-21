@@ -47,6 +47,9 @@ def update_note(note_id: int, data: NoteIn, user: User = Depends(current_user),
     n = _owned(db, user, note_id)
     for k, v in data.model_dump().items():
         setattr(n, k, v)
+    # при (пере)установке напоминания — разрешаем повторную отправку
+    if n.remind_at is not None:
+        n.remind_sent = False
     db.commit()
     db.refresh(n)
     return n
